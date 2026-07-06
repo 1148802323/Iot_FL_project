@@ -1,0 +1,4 @@
+strategy,method,rounds,local_epochs,clients,train_samples,threshold,accuracy,precision,recall,f1,tp,tn,fp,fn,positive_predictions,communication_client_updates,communication_sample_updates
+iid,FedAvg all clients,50,5,5,6000,0.79,0.9495,0.3146,0.4118,0.3567,28,1871,61,40,89,250,300000
+moderate_non_iid,FedAvg all clients,50,5,5,6000,0.82,0.957,0.3676,0.3676,0.3676,25,1889,43,43,68,250,300000
+highly_non_iid,FedAvg all clients,50,5,5,6000,0.82,0.954,0.3235,0.3235,0.3235,22,1886,46,46,68,250,300000

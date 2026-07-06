@@ -1,0 +1,8 @@
+.idea/
+.agents/
+.codex/
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+*.tmp
+*.log

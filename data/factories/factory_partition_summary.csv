@@ -1,0 +1,16 @@
+strategy,factory,rows,failure_rate,type_L,type_M,type_H,mode_None,mode_HDF,mode_PWF,mode_OSF,mode_TWF,mode_RNF
+iid,factory_01,2002,0.0345,1200,600,202,1933,22,20,15,9,3
+iid,factory_02,2001,0.034,1200,600,201,1934,18,18,18,9,4
+iid,factory_03,2000,0.034,1200,600,200,1929,20,13,22,12,4
+iid,factory_04,1999,0.0335,1200,599,200,1928,26,14,22,4,5
+iid,factory_05,1998,0.0335,1200,598,200,1928,20,18,21,8,3
+moderate_non_iid,factory_01,2030,0.036,1218,612,200,1954,21,19,18,13,5
+moderate_non_iid,factory_02,1940,0.0309,1162,585,193,1879,19,15,20,5,2
+moderate_non_iid,factory_03,1995,0.0396,1182,623,190,1916,28,24,15,10,2
+moderate_non_iid,factory_04,1993,0.0346,1188,585,220,1923,21,14,24,7,4
+moderate_non_iid,factory_05,2042,0.0284,1250,592,200,1980,17,11,21,7,6
+highly_non_iid,factory_01,2032,0.0507,1227,599,206,1931,90,4,4,2,1
+highly_non_iid,factory_02,2012,0.0398,1223,601,188,1931,4,70,4,2,1
+highly_non_iid,factory_03,2022,0.0465,1219,593,210,1930,4,3,82,2,1
+highly_non_iid,factory_04,1977,0.0248,1187,589,201,1930,4,3,4,35,1
+highly_non_iid,factory_05,1957,0.0066,1144,615,198,1930,4,3,4,1,15

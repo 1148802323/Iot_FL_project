@@ -1,0 +1,8 @@
+{
+  "rows": 10000,
+  "columns": 14,
+  "duplicate_rows": 0,
+  "target_positive": 339,
+  "target_negative": 9661,
+  "target_positive_rate": 0.0339
+}
