@@ -72,3 +72,35 @@ Generated outputs:
 - `figures/fedavg_convergence.png`: validation F1 by communication round.
 - `figures/fedavg_client_loss.png`: mean client loss by communication round.
 - `figures/fedavg_final_metrics.png`: final test metric comparison.
+
+## Proposed Method V1: Failure-Aware FedAvg
+
+Run the first proposed aggregation method:
+
+```powershell
+& 'C:\Users\8U7HYBBY\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe' src\train_failure_aware_fedavg.py --rounds 50 --local-epochs 5 --seed 42 --alpha 1.0
+```
+
+Aggregation rule:
+
+```text
+aggregation_weight = client_samples * (1 + alpha * client_failure_rate / global_failure_rate)
+```
+
+Interpretation:
+
+- `alpha = 0.0` is equivalent to standard sample-size FedAvg.
+- Larger `alpha` gives more aggregation weight to clients with above-average failure rates.
+- This is designed for imbalanced predictive maintenance data where failure cases are rare but important.
+
+Generated outputs:
+
+- `reports/failure_aware_fedavg_results.csv`: final test metrics for the V1 method.
+- `reports/failure_aware_fedavg_history.csv`: per-round validation/test metrics and client loss.
+- `reports/failure_aware_fedavg_threshold_tuning.csv`: validation threshold sweep.
+- `reports/failure_aware_vs_fedavg_results.csv`: comparison against the standard FedAvg baseline.
+- `data/processed/failure_aware_fedavg_models.json`: final global model coefficients, thresholds, and aggregation metadata.
+- `figures/failure_aware_fedavg_convergence.png`: validation F1 by communication round.
+- `figures/failure_aware_fedavg_client_loss.png`: mean client loss by communication round.
+- `figures/failure_aware_fedavg_final_metrics.png`: final V1 metric comparison across IID/Non-IID settings.
+- `figures/failure_aware_vs_fedavg_metrics.png`: standard FedAvg vs failure-aware FedAvg comparison.
