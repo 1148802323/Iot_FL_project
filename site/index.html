@@ -1,0 +1,399 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AI4I Predictive Maintenance Federated Learning Project</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <div class="shell">
+    <aside class="sidebar" aria-label="Project navigation">
+      <a class="brand" href="#overview" aria-label="Back to project overview">
+        <span class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><path d="M3 21h18"/><path d="M5 21V9l5 3V9l5 3V6l4 2v13"/><path d="M8 17h2"/><path d="M14 17h2"/></svg>
+        </span>
+        <span>
+          <strong>AI4I FedAvg</strong>
+          <small>Predictive Maintenance</small>
+        </span>
+      </a>
+
+      <nav class="nav">
+        <a href="#overview" class="active">
+          <svg viewBox="0 0 24 24"><path d="M4 19V5"/><path d="M4 19h16"/><path d="M8 15l3-4 3 2 4-6"/></svg>
+          Overview
+        </a>
+        <a href="#results">
+          <svg viewBox="0 0 24 24"><path d="M12 20V10"/><path d="M18 20V4"/><path d="M6 20v-6"/></svg>
+          Results
+        </a>
+        <a href="#predict">
+          <svg viewBox="0 0 24 24"><path d="M4 14a8 8 0 0 1 16 0"/><path d="M12 14 16 8"/><path d="M5 19h14"/></svg>
+          Live Prediction
+        </a>
+        <a href="#factories">
+          <svg viewBox="0 0 24 24"><path d="M3 21h18"/><path d="M5 21V8l4 2V8l4 2V5l6 3v13"/></svg>
+          Factory Split
+        </a>
+        <a href="#figures">
+          <svg viewBox="0 0 24 24"><path d="M4 5h16v14H4z"/><path d="m4 15 4-4 4 4 3-3 5 5"/></svg>
+          Figures
+        </a>
+        <a href="#reproduce">
+          <svg viewBox="0 0 24 24"><path d="M8 17 3 12l5-5"/><path d="m16 7 5 5-5 5"/><path d="m14 4-4 16"/></svg>
+          Reproduce
+        </a>
+      </nav>
+
+      <div class="side-note">
+        <span>Local data sources</span>
+        <strong>reports / figures</strong>
+      </div>
+    </aside>
+
+    <main class="content">
+      <section class="hero" id="overview">
+        <div class="hero-copy">
+          <p class="eyebrow">Final-year project showcase</p>
+          <h1>Predictive Maintenance and Federated Learning Baselines on AI4I 2020</h1>
+          <p class="lead">
+            This project studies industrial machine failure prediction with a centralized weighted logistic regression baseline and FedAvg baselines across IID, Moderate Non-IID, and Highly Non-IID factory-client settings.
+          </p>
+          <div class="hero-actions">
+            <a class="button primary" href="#results">
+              <svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="m19 12-7 7-7-7"/></svg>
+              View Results
+            </a>
+            <a class="button secondary" href="../README.md">
+              <svg viewBox="0 0 24 24"><path d="M4 19.5V5a2 2 0 0 1 2-2h12v18H6a2 2 0 0 1-2-1.5Z"/><path d="M8 7h6"/><path d="M8 11h8"/></svg>
+              README
+            </a>
+          </div>
+        </div>
+
+        <div class="hero-panel" aria-label="Key metric overview">
+          <div class="panel-title">
+            <span>Baseline Snapshot</span>
+            <strong id="snapshot-status">Loading experiment results</strong>
+          </div>
+          <div class="hero-metrics">
+            <article>
+              <span>Dataset Size</span>
+              <strong id="metric-rows">10,000</strong>
+              <small>AI4I raw samples</small>
+            </article>
+            <article>
+              <span>Failure Rate</span>
+              <strong id="metric-failure-rate">3.39%</strong>
+              <small>Highly imbalanced target</small>
+            </article>
+            <article>
+              <span>Clients</span>
+              <strong>5</strong>
+              <small>Simulated factory nodes</small>
+            </article>
+            <article>
+              <span>Communication Rounds</span>
+              <strong>50</strong>
+              <small>FedAvg rounds</small>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="summary-grid" aria-label="Research workflow">
+        <article class="process-card">
+          <span class="step">01</span>
+          <h2>Data Preparation</h2>
+          <p>Clean the AI4I 2020 dataset, preserve traceable IDs, and engineer temperature gap, power proxy, and standardized sensor features.</p>
+        </article>
+        <article class="process-card">
+          <span class="step">02</span>
+          <h2>Centralized Baseline</h2>
+          <p>Exclude leakage-prone failure-mode columns, train weighted logistic regression, and tune the decision threshold for validation F1.</p>
+        </article>
+        <article class="process-card">
+          <span class="step">03</span>
+          <h2>Federated Learning</h2>
+          <p>Treat each factory CSV as a client, train all clients locally, and aggregate model parameters with sample-size weighted FedAvg.</p>
+        </article>
+        <article class="process-card">
+          <span class="step">04</span>
+          <h2>Distribution Comparison</h2>
+          <p>Compare IID, Moderate Non-IID, and Highly Non-IID splits to show how client heterogeneity affects model metrics.</p>
+        </article>
+      </section>
+
+      <section class="section" id="predict">
+        <div class="section-head">
+          <div>
+            <p class="eyebrow">Input / Output</p>
+            <h2>Live Machine Failure Risk Prediction</h2>
+          </div>
+          <p>Enter one machine sensor record and use the trained logistic or FedAvg model to output failure probability, decision status, and main risk contributors.</p>
+        </div>
+
+        <div class="predict-layout">
+          <form class="predict-form card" id="prediction-form">
+            <div class="card-head">
+              <h3>Input Machine Data</h3>
+              <span>Aligned with AI4I feature fields</span>
+            </div>
+
+            <div class="form-grid">
+              <label>
+                <span>Model</span>
+                <select id="model-select" name="model">
+                  <option value="centralized">Centralized weighted logistic</option>
+                  <option value="fedavg_iid">FedAvg IID</option>
+                  <option value="fedavg_moderate_non_iid">FedAvg Moderate Non-IID</option>
+                  <option value="fedavg_highly_non_iid">FedAvg Highly Non-IID</option>
+                </select>
+              </label>
+
+              <label>
+                <span>Product Type</span>
+                <select id="input-type" name="type">
+                  <option value="L">L - Low quality variant</option>
+                  <option value="M" selected>M - Medium quality variant</option>
+                  <option value="H">H - High quality variant</option>
+                </select>
+              </label>
+
+              <label>
+                <span>Air temperature [K]</span>
+                <input id="air-temp" name="airTemp" type="number" step="0.1" value="300.0" min="295" max="305">
+              </label>
+
+              <label>
+                <span>Process temperature [K]</span>
+                <input id="process-temp" name="processTemp" type="number" step="0.1" value="310.0" min="305" max="315">
+              </label>
+
+              <label>
+                <span>Rotational speed [rpm]</span>
+                <input id="rot-speed" name="rotSpeed" type="number" step="1" value="1538" min="1000" max="3000">
+              </label>
+
+              <label>
+                <span>Torque [Nm]</span>
+                <input id="torque" name="torque" type="number" step="0.1" value="40.0" min="0" max="80">
+              </label>
+
+              <label>
+                <span>Tool wear [min]</span>
+                <input id="tool-wear" name="toolWear" type="number" step="1" value="108" min="0" max="260">
+              </label>
+            </div>
+
+            <div class="form-actions">
+              <button class="button primary form-button" type="submit">
+                <svg viewBox="0 0 24 24"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg>
+                Generate Prediction
+              </button>
+              <button class="button neutral form-button" id="example-button" type="button">
+                <svg viewBox="0 0 24 24"><path d="M4 4v6h6"/><path d="M20 20v-6h-6"/><path d="M20 9A8 8 0 0 0 6.7 5.7L4 10"/><path d="M4 15a8 8 0 0 0 13.3 3.3L20 14"/></svg>
+                High-Risk Sample
+              </button>
+              <button class="button ghost form-button" id="reset-button" type="button">
+                <svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v6h6"/></svg>
+                Reset
+              </button>
+            </div>
+          </form>
+
+          <aside class="prediction-output card" aria-live="polite">
+            <div class="card-head">
+              <h3>Prediction Output</h3>
+              <span id="output-model">Centralized weighted logistic</span>
+            </div>
+
+            <div class="risk-panel">
+              <div class="risk-ring" id="risk-ring" style="--risk: 0%;">
+                <span id="risk-probability">0.0%</span>
+              </div>
+              <div>
+                <span class="result-badge low" id="risk-label">Waiting for input</span>
+                <p id="risk-text">Fill in the input fields and click “Generate Prediction” to view the model's failure-risk output.</p>
+              </div>
+            </div>
+
+            <div class="output-grid">
+              <div>
+                <span>Model Threshold</span>
+                <strong id="output-threshold">-</strong>
+              </div>
+              <div>
+                <span>Temperature Gap</span>
+                <strong id="output-gap">-</strong>
+              </div>
+              <div>
+                <span>Power Proxy</span>
+                <strong id="output-power">-</strong>
+              </div>
+              <div>
+                <span>Decision</span>
+                <strong id="output-decision">-</strong>
+              </div>
+            </div>
+
+            <div class="contribution-box">
+              <div class="card-head compact">
+                <h3>Main Risk Contributors</h3>
+                <span>coefficient x feature</span>
+              </div>
+              <div id="contribution-list" class="contribution-list">
+                <div class="empty-state">No prediction yet</div>
+              </div>
+            </div>
+          </aside>
+        </div>
+      </section>
+
+      <section class="section" id="results">
+        <div class="section-head">
+          <div>
+            <p class="eyebrow">Experiment Results</p>
+            <h2>Model Performance Comparison</h2>
+          </div>
+          <p>All metrics are loaded automatically from `reports/*.csv` when the page opens.</p>
+        </div>
+
+        <div class="results-layout">
+          <article class="card">
+            <div class="card-head">
+              <h3>Key Test Metrics</h3>
+              <span>F1 / Precision / Recall</span>
+            </div>
+            <div id="result-bars" class="bar-chart" aria-label="Model metric bar chart"></div>
+          </article>
+
+          <article class="card">
+            <div class="card-head">
+              <h3>FedAvg Convergence Trend</h3>
+              <span>validation F1 by round</span>
+            </div>
+            <div id="convergence-chart" class="line-chart" aria-label="FedAvg convergence curve"></div>
+          </article>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Method</th>
+                <th>Threshold</th>
+                <th>Accuracy</th>
+                <th>Precision</th>
+                <th>Recall</th>
+                <th>F1</th>
+                <th>TP / FP / FN</th>
+              </tr>
+            </thead>
+            <tbody id="results-table"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="section" id="factories">
+        <div class="section-head">
+          <div>
+            <p class="eyebrow">Federated Clients</p>
+            <h2>Simulated Factory Client Split</h2>
+          </div>
+          <p>Each strategy contains 5 factory clients. This section shows sample size, failure rate, and dominant failure mode.</p>
+        </div>
+
+        <div class="factory-controls" role="tablist" aria-label="Client distribution strategy">
+          <button class="segmented active" data-strategy="iid" type="button">IID</button>
+          <button class="segmented" data-strategy="moderate_non_iid" type="button">Moderate Non-IID</button>
+          <button class="segmented" data-strategy="highly_non_iid" type="button">Highly Non-IID</button>
+        </div>
+
+        <div class="factory-layout">
+          <article class="card">
+            <div class="card-head">
+              <h3>Factory Failure Rate</h3>
+              <span id="factory-subtitle">iid</span>
+            </div>
+            <div id="factory-chart" class="factory-chart"></div>
+          </article>
+
+          <article class="card">
+            <div class="card-head">
+              <h3>Client Details</h3>
+              <span>rows / failure rate / dominant mode</span>
+            </div>
+            <div class="mini-table" id="factory-table"></div>
+          </article>
+        </div>
+      </section>
+
+      <section class="section" id="figures">
+        <div class="section-head">
+          <div>
+            <p class="eyebrow">Generated Figures</p>
+            <h2>Experiment Figures and Data Insights</h2>
+          </div>
+          <p>These figures are loaded from the project's `figures/` folder and can be reused for the thesis, defense slides, or project demos.</p>
+        </div>
+
+        <div class="figure-grid">
+          <a class="figure-card featured" href="../figures/fedavg_final_metrics.png">
+            <img src="../figures/fedavg_final_metrics.png" alt="FedAvg final metric comparison">
+            <span>FedAvg Final Metric Comparison</span>
+          </a>
+          <a class="figure-card" href="../figures/fedavg_convergence.png">
+            <img src="../figures/fedavg_convergence.png" alt="FedAvg convergence curve">
+            <span>FedAvg Convergence Curve</span>
+          </a>
+          <a class="figure-card" href="../figures/centralized_baseline_metrics.png">
+            <img src="../figures/centralized_baseline_metrics.png" alt="Centralized baseline metrics">
+            <span>Centralized Baseline Metrics</span>
+          </a>
+          <a class="figure-card" href="../figures/centralized_confusion_matrix.png">
+            <img src="../figures/centralized_confusion_matrix.png" alt="Centralized confusion matrix">
+            <span>Centralized Confusion Matrix</span>
+          </a>
+          <a class="figure-card" href="../figures/client_distribution_highly_non_iid.png">
+            <img src="../figures/client_distribution_highly_non_iid.png" alt="Highly Non-IID client distribution">
+            <span>Highly Non-IID Client Distribution</span>
+          </a>
+          <a class="figure-card" href="../figures/correlation_heatmap.png">
+            <img src="../figures/correlation_heatmap.png" alt="Feature correlation heatmap">
+            <span>Feature Correlation Heatmap</span>
+          </a>
+        </div>
+      </section>
+
+      <section class="section reproduce" id="reproduce">
+        <div class="section-head">
+          <div>
+            <p class="eyebrow">Reproducibility</p>
+            <h2>Local Reproduction Commands</h2>
+          </div>
+          <p>The complete execution path from data preparation to centralized and federated baselines.</p>
+        </div>
+
+        <div class="code-grid">
+          <article class="code-card">
+            <h3>1. Data Preparation</h3>
+            <pre><code>python src/prepare_ai4i_dataset.py --clients 5 --seed 42</code></pre>
+          </article>
+          <article class="code-card">
+            <h3>2. Centralized Baseline</h3>
+            <pre><code>python src/train_centralized_baseline.py --seed 42 --epochs 500</code></pre>
+          </article>
+          <article class="code-card">
+            <h3>3. FedAvg baseline</h3>
+            <pre><code>python src/train_fedavg_baseline.py --rounds 50 --local-epochs 5 --seed 42</code></pre>
+          </article>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="./app.js?v=english-20260716"></script>
+</body>
+</html>
