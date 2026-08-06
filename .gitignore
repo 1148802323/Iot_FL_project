@@ -8,3 +8,7 @@ __pycache__/
 *.tmp
 *.log
 
+.venv_flower/
+__pycache__/
+*.pyc
+reports/baseline_consistency/
