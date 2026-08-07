@@ -291,6 +291,31 @@ Before comparing algorithms, confirm that:
 
 ## 15. References
 
+## 15. Cost-Sensitive Deployment Scenarios (Part 4 Extension)
+
+The evaluator can now supplement F1-oriented threshold selection with a
+scenario-based operational cost analysis:
+
+```math
+C = C_{FN}FN + C_{FP}FP.
+```
+
+The cost-optimal threshold is selected on validation data and is locked before
+test evaluation. Configure the assumptions with `--false-negative-cost` and
+`--false-positive-cost`. Values such as 5:1, 10:1 and 20:1 should be reported as
+sensitivity scenarios unless verified factory cost data are available. The
+evaluator reports total cost and cost per 1,000 observations at both the
+F1-oriented threshold and the cost-oriented threshold.
+
+## 16. Part 4 Dynamic Weighting Evaluation
+
+`src/train_dynamic_failure_aware_variant4.py` implements the independent Part 4
+algorithm and exports predictions directly in this evaluator's CSV contract.
+Its fixed, linear and recall-adaptive schedules enable an ablation study without
+modifying the existing FedAvg, V1 or V2 source files.
+
+## 17. References
+
 [1] Q. Li, Y. Diao, Q. Chen, and B. He, “Federated Learning on Non-IID Data Silos: An Experimental Study,” *2022 IEEE 38th International Conference on Data Engineering (ICDE)*, pp. 965–978, 2022. [https://doi.org/10.1109/ICDE53745.2022.00077](https://doi.org/10.1109/ICDE53745.2022.00077)
 
 [2] J. Ogier du Terrail et al., “FLamby: Datasets and Benchmarks for Cross-Silo Federated Learning in Realistic Healthcare Settings,” *Advances in Neural Information Processing Systems 35*, Datasets and Benchmarks Track, 2022. [Official proceedings page](https://proceedings.neurips.cc/paper_files/paper/2022/hash/232eee8ef411a0a316efa298d7be3c2b-Abstract-Datasets_and_Benchmarks.html)

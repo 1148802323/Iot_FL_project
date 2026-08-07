@@ -70,7 +70,8 @@ def average_precision(y_true: np.ndarray, probability: np.ndarray) -> float:
 
 
 def metrics(
-    y_true: np.ndarray, probability: np.ndarray, threshold: float
+    y_true: np.ndarray, probability: np.ndarray, threshold: float,
+    false_negative_cost: float = 10.0, false_positive_cost: float = 1.0,
 ) -> dict[str, float | int]:
     prediction = probability >= threshold
     tp = int(((y_true == 1) & prediction).sum())
@@ -82,6 +83,7 @@ def metrics(
     specificity = tn / max(tn + fp, 1)
     f1 = 2 * precision * recall / max(precision + recall, 1e-12)
     f2 = 5 * precision * recall / max(4 * precision + recall, 1e-12)
+    total_cost = false_negative_cost * fn + false_positive_cost * fp
     return {
         "threshold": float(threshold),
         "accuracy": (tp + tn) / max(len(y_true), 1),
@@ -98,6 +100,8 @@ def metrics(
         "fn": fn,
         "positive_support": int((y_true == 1).sum()),
         "negative_support": int((y_true == 0).sum()),
+        "total_cost": float(total_cost),
+        "cost_per_1000": float(1000 * total_cost / max(len(y_true), 1)),
     }
 
 
@@ -108,6 +112,24 @@ def tune_threshold(y_true: np.ndarray, probability: np.ndarray) -> float:
     ]
     best = pd.DataFrame(candidates).sort_values(
         ["f1", "recall", "precision"], ascending=False
+    ).iloc[0]
+    return float(best["threshold"])
+
+
+def tune_cost_threshold(
+    y_true: np.ndarray, probability: np.ndarray,
+    false_negative_cost: float, false_positive_cost: float,
+) -> float:
+    """Choose the minimum-cost threshold on validation data only."""
+    candidates = [
+        metrics(
+            y_true, probability, float(threshold),
+            false_negative_cost, false_positive_cost,
+        )
+        for threshold in np.linspace(0.01, 0.99, 99)
+    ]
+    best = pd.DataFrame(candidates).sort_values(
+        ["total_cost", "recall", "precision"], ascending=[True, False, False]
     ).iloc[0]
     return float(best["threshold"])
 
@@ -301,7 +323,8 @@ def summarize(raw: pd.DataFrame) -> pd.DataFrame:
         "client_macro_recall", "client_worst_recall", "client_recall_std",
         "client_macro_f1", "client_worst_f1", "client_f1_std",
         "client_macro_pr_auc", "client_worst_pr_auc", "client_pr_auc_std",
-        "convergence_round",
+        "convergence_round", "total_cost", "cost_per_1000",
+        "cost_optimal_total_cost", "cost_optimal_cost_per_1000",
     ]
     summary = raw.groupby(["strategy", "algorithm"], sort=False)[metric_names].agg(["mean", "std", "count"])
     summary.columns = [f"{metric_name}_{stat}" for metric_name, stat in summary.columns]
@@ -314,7 +337,8 @@ def paired_bootstrap(raw: pd.DataFrame, baseline: str, samples: int) -> pd.DataF
     compared_metrics = [
         "recall", "f1", "f2", "pr_auc", "client_macro_recall", "client_worst_recall",
         "client_macro_f1", "client_worst_f1", "client_macro_pr_auc", "client_worst_pr_auc",
-        "convergence_round",
+        "convergence_round", "total_cost", "cost_per_1000",
+        "cost_optimal_total_cost", "cost_optimal_cost_per_1000",
     ]
     for strategy in raw["strategy"].unique():
         base = raw[(raw.strategy == strategy) & (raw.algorithm == baseline)].set_index("seed")
@@ -388,6 +412,8 @@ def evaluate(
     strategies: tuple[str, ...],
     output_directory: Path,
     bootstrap_samples: int,
+    false_negative_cost: float = 10.0,
+    false_positive_cost: float = 1.0,
 ) -> dict[str, Path]:
     full_data = pd.read_csv(data_path)
     required_data = {ID_COLUMN, TARGET}
@@ -426,7 +452,18 @@ def evaluate(
                         test_rows, expected[(seed, "test")], f"{identity} test"
                     )
                     threshold = tune_threshold(y_validation, validation_probability)
-                    global_metrics = metrics(y_test, test_probability, threshold)
+                    cost_threshold = tune_cost_threshold(
+                        y_validation, validation_probability,
+                        false_negative_cost, false_positive_cost,
+                    )
+                    global_metrics = metrics(
+                        y_test, test_probability, threshold,
+                        false_negative_cost, false_positive_cost,
+                    )
+                    cost_metrics = metrics(
+                        y_test, test_probability, cost_threshold,
+                        false_negative_cost, false_positive_cost,
+                    )
                     per_client, aggregate = per_client_metrics(
                         algorithm, seed, strategy, test_ids, y_test, test_probability,
                         threshold, factory_root / strategy,
@@ -440,7 +477,13 @@ def evaluate(
                     raw_rows.append({
                         **identity, "source": str(source), "convergence_round": convergence,
                         **heterogeneity(factory_root / strategy, train_ids),
-                        **global_metrics, **aggregate,
+                        **global_metrics,
+                        "cost_optimal_threshold": cost_threshold,
+                        "cost_optimal_total_cost": cost_metrics["total_cost"],
+                        "cost_optimal_cost_per_1000": cost_metrics["cost_per_1000"],
+                        "cost_optimal_recall": cost_metrics["recall"],
+                        "cost_optimal_precision": cost_metrics["precision"],
+                        **aggregate,
                     })
                     print(
                         f"OK algorithm={algorithm} seed={seed} strategy={strategy} "
@@ -492,6 +535,9 @@ def evaluate(
         "successful_runs": len(raw),
         "failed_runs": len(error_table),
         "test_threshold_policy": "validation F1 maximization then locked test evaluation",
+        "cost_threshold_policy": "validation expected-cost minimization then locked test evaluation",
+        "false_negative_cost": false_negative_cost,
+        "false_positive_cost": false_positive_cost,
         "important_limitation": "Prediction files are trusted to come from models that did not train on test rows.",
     }
     paths["manifest"].write_text(json.dumps(manifest, indent=2), encoding="utf-8")
@@ -582,10 +628,20 @@ def main() -> None:
     parser.add_argument("--seeds", type=int, nargs="+", default=list(DEFAULT_SEEDS))
     parser.add_argument("--strategies", nargs="+", default=list(DEFAULT_STRATEGIES))
     parser.add_argument("--bootstrap-samples", type=int, default=5000)
+    parser.add_argument(
+        "--false-negative-cost", type=float, default=10.0,
+        help="Scenario cost assigned to one missed failure (FN).",
+    )
+    parser.add_argument(
+        "--false-positive-cost", type=float, default=1.0,
+        help="Scenario cost assigned to one false alarm (FP).",
+    )
     parser.add_argument("--make-request-template", type=Path)
     parser.add_argument("--make-demo-predictions", type=Path)
     parser.add_argument("--self-test", action="store_true")
     args = parser.parse_args()
+    if args.false_negative_cost < 0 or args.false_positive_cost < 0:
+        parser.error("Scenario costs must be non-negative")
     seeds = tuple(args.seeds)
     strategies = tuple(value.lower() for value in args.strategies)
     if args.self_test:
@@ -602,6 +658,7 @@ def main() -> None:
     paths = evaluate(
         args.data, args.factory_root, args.prediction, args.baseline, seeds, strategies,
         args.output_directory, args.bootstrap_samples,
+        args.false_negative_cost, args.false_positive_cost,
     )
     print("\nEvaluation complete:")
     for name, path in paths.items():

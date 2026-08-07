@@ -1,0 +1,23 @@
+UPLOAD TARGET: the root directory of Iot_FL_project-main
+
+Copy the files while preserving their paths:
+
+Repository root
+|-- standalone_non_iid_evaluator.py          (replace your existing evaluation framework)
+|-- EVALUATION_FRAMEWORK.md                   (replace your existing evaluation documentation)
+|-- PART4_AND_EVALUATION_GUIDE.md             (new file)
+|-- src/
+|   `-- train_dynamic_failure_aware_variant4.py  (new file)
+`-- tests/
+    `-- test_evaluation_framework.py          (new file)
+
+Do not replace or edit:
+- src/train_fedavg_baseline.py
+- src/train_failure_aware_fedavg.py
+- src/train_failure_count_fedavg_variant2_clean.py
+
+Recommended test after copying:
+python -m unittest discover -s tests -v
+
+Quick Part 4 smoke test:
+python src/train_dynamic_failure_aware_variant4.py --seeds 42 --strategies iid --rounds 2 --local-epochs 1 --output-dir smoke_part4
