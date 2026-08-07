@@ -9,6 +9,9 @@ const paths = {
   standardization: "../data/processed/standardization_parameters.csv"
 };
 
+const apiBase = window.localStorage.getItem("iotFlApiBase") || "http://127.0.0.1:8000";
+const tokenStorageKey = "iotFlAccessToken";
+
 const colors = {
   blue: "#2568c4",
   teal: "#177c86",
@@ -24,6 +27,7 @@ let factoryRows = [];
 let currentStrategy = "iid";
 let predictionModels = {};
 let standardization = {};
+let accessToken = window.localStorage.getItem(tokenStorageKey) || "";
 
 const defaultInput = {
   model: "centralized",
@@ -107,6 +111,166 @@ function showError(message) {
   error.className = "load-error";
   error.textContent = message;
   target.prepend(error);
+}
+
+function showAuthMessage(message, type = "") {
+  const target = document.querySelector("#auth-message");
+  if (!target) {
+    return;
+  }
+  target.textContent = message;
+  target.className = `auth-message ${type}`.trim();
+}
+
+async function apiRequest(path, options = {}) {
+  const headers = {
+    "Content-Type": "application/json",
+    ...(options.headers || {})
+  };
+  if (accessToken) {
+    headers.Authorization = `Bearer ${accessToken}`;
+  }
+
+  const response = await fetch(`${apiBase}${path}`, {
+    ...options,
+    headers
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(payload.detail || `Request failed with status ${response.status}`);
+  }
+  return payload;
+}
+
+function saveSession(token, user) {
+  accessToken = token;
+  window.localStorage.setItem(tokenStorageKey, token);
+  renderSession(user);
+}
+
+function clearSession() {
+  accessToken = "";
+  window.localStorage.removeItem(tokenStorageKey);
+  document.querySelector("#auth-status").textContent = "Not connected";
+  document.querySelector("#session-box").innerHTML = `<div class="empty-state">Login or register to view the current user.</div>`;
+}
+
+function renderSession(user) {
+  document.querySelector("#auth-status").textContent = `${user.role} session`;
+  document.querySelector("#session-box").innerHTML = `
+    <div class="session-line"><span>User</span><strong>${user.username}</strong></div>
+    <div class="session-line"><span>Email</span><strong>${user.email}</strong></div>
+    <div class="session-line"><span>Role</span><strong>${user.role}</strong></div>
+    <div class="session-line"><span>Factory</span><strong>${user.factory_id ?? "None"}</strong></div>
+    <div class="session-line"><span>Status</span><strong>${user.is_active ? "Active" : "Inactive"}</strong></div>
+  `;
+}
+
+function readRegisterPayload() {
+  const role = document.querySelector("#register-role").value;
+  const rawFactoryId = document.querySelector("#register-factory-id").value;
+  return {
+    username: document.querySelector("#register-username").value.trim(),
+    email: document.querySelector("#register-email").value.trim(),
+    password: document.querySelector("#register-password").value,
+    role,
+    factory_id: role === "client" ? Number(rawFactoryId) : null
+  };
+}
+
+function bindAuthControls() {
+  const loginForm = document.querySelector("#login-form");
+  const registerForm = document.querySelector("#register-form");
+  const meButton = document.querySelector("#me-button");
+  const logoutButton = document.querySelector("#logout-button");
+  const adminButton = document.querySelector("#admin-check-button");
+  const roleSelect = document.querySelector("#register-role");
+  const factoryInput = document.querySelector("#register-factory-id");
+
+  if (!loginForm || !registerForm) {
+    return;
+  }
+
+  roleSelect.addEventListener("change", () => {
+    const isClient = roleSelect.value === "client";
+    factoryInput.disabled = !isClient;
+    factoryInput.required = isClient;
+    if (!isClient) {
+      factoryInput.value = "";
+    } else if (!factoryInput.value) {
+      factoryInput.value = "1";
+    }
+  });
+
+  loginForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    try {
+      const payload = {
+        username: document.querySelector("#login-username").value.trim(),
+        password: document.querySelector("#login-password").value
+      };
+      const result = await apiRequest("/api/auth/login", {
+        method: "POST",
+        body: JSON.stringify(payload)
+      });
+      saveSession(result.access_token, result.user);
+      showAuthMessage("Login successful.", "success");
+    } catch (error) {
+      showAuthMessage(error.message, "error");
+    }
+  });
+
+  registerForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    try {
+      const result = await apiRequest("/api/auth/register", {
+        method: "POST",
+        body: JSON.stringify(readRegisterPayload())
+      });
+      saveSession(result.access_token, result.user);
+      showAuthMessage("Account created and logged in.", "success");
+    } catch (error) {
+      showAuthMessage(error.message, "error");
+    }
+  });
+
+  meButton.addEventListener("click", async () => {
+    try {
+      const user = await apiRequest("/api/auth/me");
+      renderSession(user);
+      showAuthMessage("Current session loaded.", "success");
+    } catch (error) {
+      showAuthMessage(error.message, "error");
+    }
+  });
+
+  adminButton.addEventListener("click", async () => {
+    try {
+      const users = await apiRequest("/api/admin/users");
+      showAuthMessage(`Admin check passed. Visible users: ${users.length}.`, "success");
+    } catch (error) {
+      showAuthMessage(error.message, "error");
+    }
+  });
+
+  logoutButton.addEventListener("click", async () => {
+    try {
+      if (accessToken) {
+        await apiRequest("/api/auth/logout", { method: "POST" });
+      }
+      clearSession();
+      showAuthMessage("Logged out.", "success");
+    } catch (error) {
+      clearSession();
+      showAuthMessage(error.message, "error");
+    }
+  });
+
+  if (accessToken) {
+    apiRequest("/api/auth/me")
+      .then((user) => renderSession(user))
+      .catch(() => clearSession());
+  }
 }
 
 function buildStandardization(rows) {
@@ -523,6 +687,7 @@ function bindControls() {
 }
 
 async function init() {
+  bindAuthControls();
   try {
     const [eda, centralized, fedavg, history, factories, centralizedModel, fedavgModels, standardizationRows] = await Promise.all([
       fetch(paths.eda).then((response) => response.json()),

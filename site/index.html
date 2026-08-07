@@ -44,6 +44,10 @@
           <svg viewBox="0 0 24 24"><path d="M8 17 3 12l5-5"/><path d="m16 7 5 5-5 5"/><path d="m14 4-4 16"/></svg>
           Reproduce
         </a>
+        <a href="#auth">
+          <svg viewBox="0 0 24 24"><path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>
+          Login
+        </a>
       </nav>
 
       <div class="side-note">
@@ -389,6 +393,98 @@
             <h3>3. FedAvg baseline</h3>
             <pre><code>python src/train_fedavg_baseline.py --rounds 50 --local-epochs 5 --seed 42</code></pre>
           </article>
+        </div>
+      </section>
+
+      <section class="section" id="auth">
+        <div class="section-head">
+          <div>
+            <p class="eyebrow">Access Control</p>
+            <h2>Backend Login and Role Check</h2>
+          </div>
+          <p>Connects to the FastAPI service under `/api/auth/*` and stores the JWT locally for the current browser.</p>
+        </div>
+
+        <div class="auth-layout">
+          <form class="card auth-card" id="login-form">
+            <div class="card-head">
+              <h3>Login</h3>
+              <span>admin / client</span>
+            </div>
+            <label>
+              <span>Username</span>
+              <input id="login-username" name="username" type="text" autocomplete="username" required>
+            </label>
+            <label>
+              <span>Password</span>
+              <input id="login-password" name="password" type="password" autocomplete="current-password" required>
+            </label>
+            <button class="button primary form-button" type="submit">
+              <svg viewBox="0 0 24 24"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><path d="m10 17 5-5-5-5"/><path d="M15 12H3"/></svg>
+              Login
+            </button>
+          </form>
+
+          <form class="card auth-card" id="register-form">
+            <div class="card-head">
+              <h3>Register</h3>
+              <span>client users require factory_id</span>
+            </div>
+            <label>
+              <span>Username</span>
+              <input id="register-username" name="username" type="text" autocomplete="username" minlength="3" required>
+            </label>
+            <label>
+              <span>Email</span>
+              <input id="register-email" name="email" type="email" autocomplete="email" required>
+            </label>
+            <label>
+              <span>Password</span>
+              <input id="register-password" name="password" type="password" autocomplete="new-password" minlength="8" required>
+            </label>
+            <div class="form-grid compact">
+              <label>
+                <span>Role</span>
+                <select id="register-role" name="role">
+                  <option value="client" selected>client</option>
+                  <option value="admin">admin</option>
+                </select>
+              </label>
+              <label>
+                <span>Factory ID</span>
+                <input id="register-factory-id" name="factoryId" type="number" min="1" value="1">
+              </label>
+            </div>
+            <button class="button secondary dark form-button" type="submit">
+              <svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+              Create Account
+            </button>
+          </form>
+
+          <aside class="card auth-card">
+            <div class="card-head">
+              <h3>Session</h3>
+              <span id="auth-status">Not connected</span>
+            </div>
+            <div class="session-box" id="session-box">
+              <div class="empty-state">Login or register to view the current user.</div>
+            </div>
+            <div class="form-actions">
+              <button class="button neutral form-button" id="me-button" type="button">
+                <svg viewBox="0 0 24 24"><path d="M20 21a8 8 0 0 0-16 0"/><circle cx="12" cy="7" r="4"/></svg>
+                Me
+              </button>
+              <button class="button ghost form-button" id="admin-check-button" type="button">
+                <svg viewBox="0 0 24 24"><path d="M12 3 5 6v6c0 5 3.5 8 7 9 3.5-1 7-4 7-9V6l-7-3Z"/><path d="m9 12 2 2 4-4"/></svg>
+                Admin Check
+              </button>
+              <button class="button ghost form-button" id="logout-button" type="button">
+                <svg viewBox="0 0 24 24"><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/></svg>
+                Logout
+              </button>
+            </div>
+            <div class="auth-message" id="auth-message" role="status"></div>
+          </aside>
         </div>
       </section>
     </main>

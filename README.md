@@ -104,3 +104,51 @@ Generated outputs:
 - `figures/failure_aware_fedavg_client_loss.png`: mean client loss by communication round.
 - `figures/failure_aware_fedavg_final_metrics.png`: final V1 metric comparison across IID/Non-IID settings.
 - `figures/failure_aware_vs_fedavg_metrics.png`: standard FedAvg vs failure-aware FedAvg comparison.
+
+## FastAPI Backend, Database, And Login
+
+Install the project dependencies:
+
+```bash
+python -m pip install -r requirements.txt
+```
+
+Create a local `.env` file from `.env.example` and replace `JWT_SECRET` before
+using the API outside local development. The default SQLite database is
+`iot_fl_app.db`; it is generated locally and ignored by Git.
+
+Run the API:
+
+```bash
+PYTHONPATH=src uvicorn iot_fl.backend.main:app --reload
+```
+
+The backend creates the `users` and `factories` tables on startup and seeds
+five default factory records. Available authentication endpoints:
+
+- `GET /api/health`
+- `POST /api/auth/register`
+- `POST /api/auth/login`
+- `GET /api/auth/me`
+- `POST /api/auth/logout`
+- `GET /api/admin/users`
+
+Client users must be registered with a valid `factory_id`; admin users must not
+be bound to a factory. The static website includes a Login section that calls
+these endpoints when the FastAPI service is running.
+
+Serve the static website from another terminal:
+
+```bash
+python -m http.server 8080 --bind 127.0.0.1
+```
+
+Then open `http://127.0.0.1:8080/site/`. The Login section calls the API at
+`http://127.0.0.1:8000` by default. The site is served from the project root so
+that it can load `reports/`, `figures/`, and `data/processed/` correctly.
+
+Run the backend tests:
+
+```bash
+PYTHONPATH=src pytest -q tests/test_backend_auth.py
+```

@@ -2,8 +2,12 @@
 .idea/
 .agents/
 .codex/
+.DS_Store
+.env
+.pytest_cache/
 __pycache__/
 *.pyc
+*.db
 .ipynb_checkpoints/
 *.tmp
 *.log
