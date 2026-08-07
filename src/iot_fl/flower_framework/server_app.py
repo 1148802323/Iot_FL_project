@@ -22,6 +22,8 @@ from iot_fl.flower_framework.strategies.strategy_factory import (
     create_strategy,
 )
 
+from iot_fl.flower_framework.config import FrameworkConfig
+
 def create_fit_config_fn(
     *,
     learning_rate: float,
@@ -143,18 +145,14 @@ def create_server_app(
     num_features: int,
     x_val: np.ndarray,
     y_val: np.ndarray,
-    rounds: int,
+
     learning_rate: float,
     local_epochs: int,
     l2: float,
-    num_clients: int,
-    aggregation: str,
-) -> ServerApp:
-    if rounds <= 0:
-        raise ValueError("rounds must be greater than zero")
+    config: FrameworkConfig,
 
-    if num_clients <= 0:
-        raise ValueError("num_clients must be greater than zero")
+) -> ServerApp:
+
 
     initial_parameters = create_initial_parameters(num_features)
 
@@ -171,18 +169,18 @@ def create_server_app(
     )
     def server_fn(context: Context) -> ServerAppComponents:
         strategy = create_strategy(
-            aggregation=aggregation,
+            aggregation=config.aggregation,
             fraction_fit=1.0,
             fraction_evaluate=0.0,
-            min_fit_clients=num_clients,
+            min_fit_clients=config.num_clients,
             min_evaluate_clients=0,
-            min_available_clients=num_clients,
+            min_available_clients=config.num_clients,
             initial_parameters=initial_parameters,
             on_fit_config_fn=fit_config_fn,
             evaluate_fn=evaluate_fn,
         )
         server_config = ServerConfig(
-            num_rounds=rounds,
+            num_rounds=config.num_rounds,
         )
         return ServerAppComponents(
             strategy=strategy,

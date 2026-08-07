@@ -36,6 +36,8 @@ from iot_fl.flower_framework.server_app import (
     create_server_app,
 )
 
+from iot_fl.flower_framework.config import FrameworkConfig
+
 PROJECT_ROOT = Path(__file__).resolve().parent
 
 def parse_args() -> argparse.Namespace:
@@ -164,6 +166,14 @@ def main() -> None:
         train_ids=train_ids,
     )
 
+    config = FrameworkConfig(
+        aggregation=args.aggregation,
+        num_clients=len(clients),
+        num_rounds=args.rounds,
+    )
+
+    print(f"[Config] {config}")
+
     client_app = create_client_app(
         clients=clients,
     )
@@ -172,12 +182,12 @@ def main() -> None:
         num_features=len(FEATURES),
         x_val=x_val,
         y_val=y_val,
-        rounds=args.rounds,
+        config=config,
         learning_rate=args.lr,
         local_epochs=args.local_epochs,
         l2=args.l2,
-        num_clients=len(clients),
-        aggregation=args.aggregation,
+
+
     )
 
 

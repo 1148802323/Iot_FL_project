@@ -14,18 +14,18 @@
       "Type_L",
       "Type_M"
     ],
-    "intercept": -0.6580093913796412,
+    "intercept": -0.6580093913796429,
     "coefficients": {
-      "air_temperature_k_z": 0.18965058765065507,
-      "process_temperature_k_z": -0.10854802674817163,
-      "rotational_speed_rpm_z": 0.9169921763934864,
-      "torque_nm_z": 0.9784449740443812,
-      "tool_wear_min_z": 0.6056635587235416,
-      "temperature_gap_k_z": -0.5398161985217769,
-      "power_proxy_z": 0.48294327680388444,
-      "Type_H": -0.19489963883751985,
-      "Type_L": -0.18296303705531755,
-      "Type_M": -0.2723550001086758
+      "air_temperature_k_z": 0.18965058765064544,
+      "process_temperature_k_z": -0.10854802674816044,
+      "rotational_speed_rpm_z": 0.9169921763934861,
+      "torque_nm_z": 0.9784449740443818,
+      "tool_wear_min_z": 0.6056635587235412,
+      "temperature_gap_k_z": -0.5398161985217794,
+      "power_proxy_z": 0.4829432768038837,
+      "Type_H": -0.19489963883751998,
+      "Type_L": -0.1829630370553184,
+      "Type_M": -0.2723550001086764
     },
     "threshold": 0.79,
     "clients": [
@@ -71,18 +71,18 @@
       "Type_L",
       "Type_M"
     ],
-    "intercept": -0.6677107952893337,
+    "intercept": -0.6677107952893349,
     "coefficients": {
-      "air_temperature_k_z": 0.18997022968153437,
-      "process_temperature_k_z": -0.1042335884620792,
-      "rotational_speed_rpm_z": 0.9251131970522615,
-      "torque_nm_z": 0.9770038641440865,
-      "tool_wear_min_z": 0.6242977902042348,
-      "temperature_gap_k_z": -0.5340603813343003,
-      "power_proxy_z": 0.49885313532911923,
-      "Type_H": -0.18531862142479744,
-      "Type_L": -0.18276460292246427,
-      "Type_M": -0.29172845403157704
+      "air_temperature_k_z": 0.18997022968152455,
+      "process_temperature_k_z": -0.10423358846206765,
+      "rotational_speed_rpm_z": 0.925113197052261,
+      "torque_nm_z": 0.9770038641440866,
+      "tool_wear_min_z": 0.6242977902042344,
+      "temperature_gap_k_z": -0.5340603813343027,
+      "power_proxy_z": 0.49885313532911846,
+      "Type_H": -0.18531862142479755,
+      "Type_L": -0.1827646029224654,
+      "Type_M": -0.29172845403157777
     },
     "threshold": 0.82,
     "clients": [
@@ -128,18 +128,18 @@
       "Type_L",
       "Type_M"
     ],
-    "intercept": -0.5935155837701758,
+    "intercept": -0.5935155837701769,
     "coefficients": {
-      "air_temperature_k_z": 0.184686157922503,
-      "process_temperature_k_z": -0.05477493592468203,
-      "rotational_speed_rpm_z": 0.8552826664104617,
-      "torque_nm_z": 0.867468953800886,
-      "tool_wear_min_z": 0.7461882108062583,
-      "temperature_gap_k_z": -0.4501991042500351,
-      "power_proxy_z": 0.45378799187134516,
+      "air_temperature_k_z": 0.18468615792249457,
+      "process_temperature_k_z": -0.05477493592467215,
+      "rotational_speed_rpm_z": 0.8552826664104612,
+      "torque_nm_z": 0.8674689538008864,
+      "tool_wear_min_z": 0.7461882108062574,
+      "temperature_gap_k_z": -0.45019910425003756,
+      "power_proxy_z": 0.4537879918713444,
       "Type_H": -0.1915034143074212,
-      "Type_L": -0.2844841274925879,
-      "Type_M": -0.1104069801592224
+      "Type_L": -0.2844841274925882,
+      "Type_M": -0.11040698015922269
     },
     "threshold": 0.82,
     "clients": [
