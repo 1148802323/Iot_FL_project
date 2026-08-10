@@ -5,8 +5,11 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from iot_fl.algorithms import list_algorithms, list_distributions
+
 
 Role = Literal["admin", "client"]
+ExperimentStatus = Literal["PENDING", "RUNNING", "COMPLETED", "FAILED"]
 
 
 class FactoryRead(BaseModel):
@@ -104,3 +107,60 @@ class ClientExperimentRead(BaseModel):
     precision: float
     recall: float
     f1: float
+
+
+class AlgorithmRead(BaseModel):
+    name: str
+    display_name: str
+    implementation_file: str
+
+
+class ExperimentCreate(BaseModel):
+    algorithm: str
+    distribution: str
+    rounds: int = Field(gt=0)
+    local_epochs: int = Field(gt=0)
+    learning_rate: float = Field(gt=0)
+
+    @field_validator("algorithm")
+    @classmethod
+    def validate_algorithm(cls, value: str) -> str:
+        normalized = value.strip()
+        if normalized not in list_algorithms():
+            raise ValueError(f"Unknown algorithm '{value}'")
+        return normalized
+
+    @field_validator("distribution")
+    @classmethod
+    def validate_distribution(cls, value: str) -> str:
+        normalized = value.strip()
+        if normalized not in list_distributions():
+            raise ValueError(f"Unknown distribution '{value}'")
+        return normalized
+
+
+class ExperimentResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    user_id: int
+    algorithm: str
+    distribution: str
+    rounds: int
+    local_epochs: int
+    learning_rate: float
+    status: ExperimentStatus
+    accuracy: float | None = None
+    precision: float | None = None
+    recall: float | None = None
+    f1_score: float | None = None
+    communication_cost: float | None = None
+    training_time: float | None = None
+    error_message: str | None = None
+    created_at: datetime
+    started_at: datetime | None = None
+    finished_at: datetime | None = None
+
+
+class ExperimentResult(ExperimentResponse):
+    convergence_history: list[dict[str, object]] = Field(default_factory=list)

@@ -8,6 +8,7 @@ from sqlalchemy import (
     Float,
     ForeignKey,
     Integer,
+    JSON,
     String,
     UniqueConstraint,
 )
@@ -89,3 +90,42 @@ class User(Base):
     )
 
     factory: Mapped[Factory | None] = relationship(back_populates="users")
+    experiments: Mapped[list["Experiment"]] = relationship(back_populates="user")
+
+
+class Experiment(Base):
+    __tablename__ = "experiments"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id"),
+        index=True,
+        nullable=False,
+    )
+    algorithm: Mapped[str] = mapped_column(String(80), index=True, nullable=False)
+    distribution: Mapped[str] = mapped_column(String(50), index=True, nullable=False)
+    rounds: Mapped[int] = mapped_column(Integer, nullable=False)
+    local_epochs: Mapped[int] = mapped_column(Integer, nullable=False)
+    learning_rate: Mapped[float] = mapped_column(Float, nullable=False)
+    status: Mapped[str] = mapped_column(String(20), default="PENDING", index=True, nullable=False)
+    accuracy: Mapped[float | None] = mapped_column(Float, nullable=True)
+    precision: Mapped[float | None] = mapped_column(Float, nullable=True)
+    recall: Mapped[float | None] = mapped_column(Float, nullable=True)
+    f1_score: Mapped[float | None] = mapped_column(Float, nullable=True)
+    communication_cost: Mapped[float | None] = mapped_column(Float, nullable=True)
+    training_time: Mapped[float | None] = mapped_column(Float, nullable=True)
+    convergence_history: Mapped[list[dict[str, object]] | None] = mapped_column(
+        JSON,
+        default=list,
+        nullable=True,
+    )
+    error_message: Mapped[str | None] = mapped_column(String(1000), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    user: Mapped[User] = relationship(back_populates="experiments")
