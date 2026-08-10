@@ -28,6 +28,11 @@ let currentStrategy = "iid";
 let predictionModels = {};
 let standardization = {};
 let accessToken = window.localStorage.getItem(tokenStorageKey) || "";
+let currentUser = null;
+let algorithmOptions = [];
+let experiments = [];
+let selectedExperimentId = null;
+let experimentBusy = false;
 
 const defaultInput = {
   model: "centralized",
@@ -122,6 +127,25 @@ function showAuthMessage(message, type = "") {
   target.className = `auth-message ${type}`.trim();
 }
 
+function apiErrorMessage(payload, fallback) {
+  if (Array.isArray(payload.detail)) {
+    return payload.detail
+      .map((item) => {
+        const location = Array.isArray(item.loc) ? item.loc.slice(1).join(".") : "";
+        const prefix = location ? `${location}: ` : "";
+        return `${prefix}${item.msg}`;
+      })
+      .join(" ");
+  }
+  if (typeof payload.detail === "string") {
+    return payload.detail;
+  }
+  if (typeof payload.message === "string") {
+    return payload.message;
+  }
+  return fallback;
+}
+
 async function apiRequest(path, options = {}) {
   const headers = {
     "Content-Type": "application/json",
@@ -137,22 +161,29 @@ async function apiRequest(path, options = {}) {
   });
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) {
-    throw new Error(payload.detail || `Request failed with status ${response.status}`);
+    if (response.status === 401) {
+      clearSession();
+    }
+    throw new Error(apiErrorMessage(payload, `Request failed with status ${response.status}`));
   }
   return payload;
 }
 
 function saveSession(token, user) {
   accessToken = token;
+  currentUser = user;
   window.localStorage.setItem(tokenStorageKey, token);
   renderSession(user);
+  loadExperimentWorkspace();
 }
 
 function clearSession() {
   accessToken = "";
+  currentUser = null;
   window.localStorage.removeItem(tokenStorageKey);
   document.querySelector("#auth-status").textContent = "Not connected";
   document.querySelector("#session-box").innerHTML = `<div class="empty-state">Login or register to view the current user.</div>`;
+  renderExperimentsLoggedOut();
 }
 
 function renderSession(user) {
@@ -268,9 +299,470 @@ function bindAuthControls() {
 
   if (accessToken) {
     apiRequest("/api/auth/me")
-      .then((user) => renderSession(user))
+      .then((user) => {
+        currentUser = user;
+        renderSession(user);
+        loadExperimentWorkspace();
+      })
       .catch(() => clearSession());
+  } else {
+    renderExperimentsLoggedOut();
   }
+}
+
+function distributionLabel(value) {
+  const labels = {
+    iid: "IID",
+    moderate_non_iid: "Moderate Non-IID",
+    highly_non_iid: "Highly Non-IID"
+  };
+  return labels[value] || value;
+}
+
+function statusClass(status) {
+  return `status-pill ${String(status || "PENDING").toLowerCase()}`;
+}
+
+function formatMetric(value, digits = 3) {
+  if (value === null || value === undefined || value === "") {
+    return "-";
+  }
+  return Number(value).toFixed(digits);
+}
+
+function formatTime(value) {
+  if (value === null || value === undefined || value === "") {
+    return "-";
+  }
+  return `${Number(value).toFixed(2)}s`;
+}
+
+function formatDateTime(value) {
+  if (!value) {
+    return "-";
+  }
+  return new Date(value).toLocaleString();
+}
+
+function setExperimentMessage(message, type = "") {
+  const target = document.querySelector("#experiment-message");
+  if (!target) {
+    return;
+  }
+  target.textContent = message;
+  target.className = `experiment-message ${type}`.trim();
+}
+
+function setExperimentBusy(isBusy) {
+  experimentBusy = isBusy;
+  const startButton = document.querySelector("#start-experiment-button");
+  const refreshButton = document.querySelector("#refresh-experiments-button");
+  if (startButton) {
+    startButton.disabled = isBusy || !accessToken;
+  }
+  if (refreshButton) {
+    refreshButton.disabled = isBusy || !accessToken;
+  }
+}
+
+function renderExperimentsLoggedOut() {
+  algorithmOptions = [];
+  experiments = [];
+  selectedExperimentId = null;
+  const notice = document.querySelector("#experiment-auth-notice");
+  const algorithmSelect = document.querySelector("#experiment-algorithm");
+  const formStatus = document.querySelector("#experiment-form-status");
+  const history = document.querySelector("#experiment-history-table");
+  const statusGrid = document.querySelector("#experiment-status-grid");
+  const metricsGrid = document.querySelector("#experiment-metrics-grid");
+  const chart = document.querySelector("#experiment-convergence-chart");
+
+  if (notice) {
+    notice.textContent = "Login to create experiments and view your experiment history.";
+    notice.className = "experiment-notice";
+  }
+  if (algorithmSelect) {
+    algorithmSelect.innerHTML = `<option value="">Login to load algorithms</option>`;
+    algorithmSelect.disabled = true;
+  }
+  if (formStatus) {
+    formStatus.textContent = "Requires login";
+  }
+  if (history) {
+    history.innerHTML = `<tr><td colspan="8">Login to load experiment history.</td></tr>`;
+  }
+  if (statusGrid) {
+    statusGrid.innerHTML = `<div class="empty-state">Login to create experiments and view status.</div>`;
+  }
+  if (metricsGrid) {
+    metricsGrid.innerHTML = `<div class="empty-state">Completed experiment metrics will appear here.</div>`;
+  }
+  if (chart) {
+    chart.innerHTML = `<div class="empty-state">No convergence history loaded.</div>`;
+  }
+  setExperimentMessage("");
+  setExperimentBusy(false);
+}
+
+function populateAlgorithmSelect() {
+  const select = document.querySelector("#experiment-algorithm");
+  if (!select) {
+    return;
+  }
+  if (!algorithmOptions.length) {
+    select.innerHTML = `<option value="">No algorithms available</option>`;
+    select.disabled = true;
+    return;
+  }
+  select.innerHTML = algorithmOptions.map((algorithm) => `
+    <option value="${algorithm.name}">${algorithm.display_name}</option>
+  `).join("");
+  select.disabled = false;
+}
+
+function renderExperimentHistory() {
+  const body = document.querySelector("#experiment-history-table");
+  if (!body) {
+    return;
+  }
+  if (!experiments.length) {
+    body.innerHTML = `<tr><td colspan="8">No experiments yet. Create one above.</td></tr>`;
+    return;
+  }
+  body.innerHTML = experiments.map((experiment) => `
+    <tr class="experiment-row ${experiment.id === selectedExperimentId ? "selected" : ""}" data-experiment-id="${experiment.id}" tabindex="0">
+      <td>#${experiment.id}</td>
+      <td>${labelForAlgorithm(experiment.algorithm)}</td>
+      <td>${distributionLabel(experiment.distribution)}</td>
+      <td><span class="${statusClass(experiment.status)}">${experiment.status}</span></td>
+      <td>${formatMetric(experiment.recall)}</td>
+      <td><strong>${formatMetric(experiment.f1_score)}</strong></td>
+      <td>${formatTime(experiment.training_time)}</td>
+      <td>${formatDateTime(experiment.created_at)}</td>
+    </tr>
+  `).join("");
+
+  body.querySelectorAll(".experiment-row").forEach((row) => {
+    row.addEventListener("click", () => selectExperiment(Number(row.dataset.experimentId)));
+    row.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        selectExperiment(Number(row.dataset.experimentId));
+      }
+    });
+  });
+}
+
+function labelForAlgorithm(name) {
+  const match = algorithmOptions.find((algorithm) => algorithm.name === name);
+  return match ? match.display_name : name;
+}
+
+function renderExperimentStatus(experiment) {
+  selectedExperimentId = experiment?.id || null;
+  const subtitle = document.querySelector("#experiment-detail-subtitle");
+  const grid = document.querySelector("#experiment-status-grid");
+  if (!subtitle || !grid) {
+    return;
+  }
+  if (!experiment) {
+    subtitle.textContent = "No experiment selected";
+    grid.innerHTML = `<div class="empty-state">Create an experiment or select one from history.</div>`;
+    return;
+  }
+  subtitle.textContent = `#${experiment.id} ${experiment.status}`;
+  grid.innerHTML = `
+    <div><span>Experiment ID</span><strong>#${experiment.id}</strong></div>
+    <div><span>Algorithm</span><strong>${labelForAlgorithm(experiment.algorithm)}</strong></div>
+    <div><span>Distribution</span><strong>${distributionLabel(experiment.distribution)}</strong></div>
+    <div><span>Status</span><strong><span class="${statusClass(experiment.status)}">${experiment.status}</span></strong></div>
+    <div><span>Created</span><strong>${formatDateTime(experiment.created_at)}</strong></div>
+    <div><span>Rounds</span><strong>${experiment.rounds}</strong></div>
+    <div><span>Local epochs</span><strong>${experiment.local_epochs}</strong></div>
+    <div><span>Learning rate</span><strong>${experiment.learning_rate}</strong></div>
+  `;
+  renderExperimentHistory();
+}
+
+function renderExperimentMetrics(result) {
+  const grid = document.querySelector("#experiment-metrics-grid");
+  const subtitle = document.querySelector("#experiment-metrics-subtitle");
+  if (!grid || !subtitle) {
+    return;
+  }
+  if (!result || result.status !== "COMPLETED") {
+    subtitle.textContent = result?.status === "FAILED" ? "Experiment failed" : "From stored backend result";
+    const message = result?.status === "FAILED"
+      ? result.error_message || "Experiment failed without a stored error message."
+      : "Completed experiment metrics will appear here.";
+    grid.innerHTML = `<div class="${result?.status === "FAILED" ? "load-error" : "empty-state"}">${message}</div>`;
+    return;
+  }
+  subtitle.textContent = `Experiment #${result.id}`;
+  grid.innerHTML = `
+    <div><span>Accuracy</span><strong>${formatMetric(result.accuracy)}</strong></div>
+    <div><span>Precision</span><strong>${formatMetric(result.precision)}</strong></div>
+    <div><span>Recall</span><strong>${formatMetric(result.recall)}</strong></div>
+    <div><span>F1</span><strong>${formatMetric(result.f1_score)}</strong></div>
+    <div><span>Communication Cost</span><strong>${formatMetric(result.communication_cost, 0)}</strong></div>
+    <div><span>Training Time</span><strong>${formatTime(result.training_time)}</strong></div>
+  `;
+}
+
+function metricFromHistory(row) {
+  if (row.val_f1 !== undefined) {
+    return { key: "val_f1", label: "Validation F1", value: Number(row.val_f1) };
+  }
+  if (row.val_f1_at_0_5 !== undefined) {
+    return { key: "val_f1_at_0_5", label: "Validation F1", value: Number(row.val_f1_at_0_5) };
+  }
+  if (row.validation_recall_at_0_5 !== undefined) {
+    return { key: "validation_recall_at_0_5", label: "Validation Recall", value: Number(row.validation_recall_at_0_5) };
+  }
+  if (row.val_recall_at_0_5 !== undefined) {
+    return { key: "val_recall_at_0_5", label: "Validation Recall", value: Number(row.val_recall_at_0_5) };
+  }
+  if (row.mean_client_loss !== undefined) {
+    return { key: "mean_client_loss", label: "Mean Client Loss", value: Number(row.mean_client_loss) };
+  }
+  return null;
+}
+
+function renderExperimentConvergenceChart(history) {
+  const target = document.querySelector("#experiment-convergence-chart");
+  if (!target) {
+    return;
+  }
+  if (!Array.isArray(history) || !history.length) {
+    target.innerHTML = `<div class="empty-state">No convergence history loaded.</div>`;
+    return;
+  }
+
+  const points = history
+    .map((row) => ({ row, metric: metricFromHistory(row) }))
+    .filter((item) => item.metric && Number.isFinite(item.metric.value))
+    .map((item) => ({
+      round: Number(item.row.round),
+      value: item.metric.value,
+      label: item.metric.label
+    }));
+
+  if (!points.length) {
+    target.innerHTML = `<div class="empty-state">Convergence history does not include a plottable metric.</div>`;
+    return;
+  }
+
+  const width = 760;
+  const height = 280;
+  const padding = { left: 54, right: 28, top: 24, bottom: 48 };
+  const chartW = width - padding.left - padding.right;
+  const chartH = height - padding.top - padding.bottom;
+  const minRound = Math.min(...points.map((point) => point.round));
+  const maxRound = Math.max(...points.map((point) => point.round));
+  const maxValue = Math.max(...points.map((point) => point.value), 0.01) * 1.08;
+  const minValue = Math.min(...points.map((point) => point.value), 0);
+  const spanRound = Math.max(maxRound - minRound, 1);
+  const spanValue = Math.max(maxValue - minValue, 0.001);
+  const label = points[0].label;
+  const polyline = points.map((point) => {
+    const x = padding.left + ((point.round - minRound) / spanRound) * chartW;
+    const y = padding.top + chartH - ((point.value - minValue) / spanValue) * chartH;
+    return `${x.toFixed(2)},${y.toFixed(2)}`;
+  }).join(" ");
+  const grid = [0, 0.25, 0.5, 0.75, 1].map((ratio) => {
+    const value = minValue + ratio * spanValue;
+    const y = padding.top + chartH - ratio * chartH;
+    return `
+      <line x1="${padding.left}" y1="${y}" x2="${width - padding.right}" y2="${y}" stroke="${colors.line}"></line>
+      <text class="axis-label" x="12" y="${y + 4}">${value.toFixed(2)}</text>
+    `;
+  }).join("");
+
+  target.innerHTML = `
+    <svg class="chart-svg" viewBox="0 0 ${width} ${height}" role="img" aria-label="${label} convergence chart">
+      ${grid}
+      <line x1="${padding.left}" y1="${padding.top + chartH}" x2="${width - padding.right}" y2="${padding.top + chartH}" stroke="${colors.line}"></line>
+      <polyline points="${polyline}" fill="none" stroke="${colors.teal}" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"></polyline>
+      ${points.map((point) => {
+        const x = padding.left + ((point.round - minRound) / spanRound) * chartW;
+        const y = padding.top + chartH - ((point.value - minValue) / spanValue) * chartH;
+        return `<circle cx="${x.toFixed(2)}" cy="${y.toFixed(2)}" r="3.5" fill="${colors.teal}"></circle>`;
+      }).join("")}
+      <text class="axis-label" x="${padding.left}" y="${height - 16}">Round ${minRound}</text>
+      <text class="axis-label" x="${width - padding.right}" y="${height - 16}" text-anchor="end">Round ${maxRound}</text>
+      <text class="axis-label" x="${padding.left}" y="14">${label}</text>
+    </svg>
+  `;
+}
+
+async function loadAlgorithms() {
+  algorithmOptions = await apiRequest("/api/algorithms");
+  populateAlgorithmSelect();
+  const formStatus = document.querySelector("#experiment-form-status");
+  if (formStatus) {
+    formStatus.textContent = `${algorithmOptions.length} algorithms available`;
+  }
+}
+
+async function loadExperimentHistory() {
+  experiments = await apiRequest("/api/experiments");
+  renderExperimentHistory();
+  if (experiments.length && !selectedExperimentId) {
+    await selectExperiment(experiments[0].id);
+  } else if (!experiments.length) {
+    renderExperimentStatus(null);
+    renderExperimentMetrics(null);
+    renderExperimentConvergenceChart([]);
+  }
+}
+
+async function loadExperimentWorkspace() {
+  if (!accessToken) {
+    renderExperimentsLoggedOut();
+    return;
+  }
+  const notice = document.querySelector("#experiment-auth-notice");
+  if (notice) {
+    notice.textContent = "Loading algorithms and experiment history...";
+    notice.className = "experiment-notice loading";
+  }
+  try {
+    await loadAlgorithms();
+    await loadExperimentHistory();
+    if (notice) {
+      notice.textContent = currentUser
+        ? `Connected as ${currentUser.username}. Experiments are stored under this account.`
+        : "Connected. Experiments are stored under the current account.";
+      notice.className = "experiment-notice success";
+    }
+    setExperimentMessage("");
+    setExperimentBusy(false);
+  } catch (error) {
+    if (notice) {
+      notice.textContent = error.message;
+      notice.className = "experiment-notice error";
+    }
+    setExperimentMessage(error.message, "error");
+    setExperimentBusy(false);
+  }
+}
+
+async function selectExperiment(experimentId) {
+  if (!accessToken || experimentBusy) {
+    return;
+  }
+  try {
+    selectedExperimentId = experimentId;
+    renderExperimentHistory();
+    const result = await apiRequest(`/api/experiments/${experimentId}/results`);
+    renderExperimentStatus(result);
+    renderExperimentMetrics(result);
+    renderExperimentConvergenceChart(result.convergence_history);
+  } catch (error) {
+    setExperimentMessage(error.message, "error");
+  }
+}
+
+function readExperimentPayload() {
+  return {
+    algorithm: document.querySelector("#experiment-algorithm").value,
+    distribution: document.querySelector("#experiment-distribution").value,
+    rounds: Number(document.querySelector("#experiment-rounds").value),
+    local_epochs: Number(document.querySelector("#experiment-local-epochs").value),
+    learning_rate: Number(document.querySelector("#experiment-learning-rate").value)
+  };
+}
+
+function validateExperimentPayload(payload) {
+  if (!payload.algorithm) {
+    return "Choose an algorithm.";
+  }
+  if (!payload.distribution) {
+    return "Choose a distribution.";
+  }
+  if (!Number.isFinite(payload.rounds) || payload.rounds <= 0) {
+    return "Global rounds must be greater than 0.";
+  }
+  if (!Number.isFinite(payload.local_epochs) || payload.local_epochs <= 0) {
+    return "Local epochs must be greater than 0.";
+  }
+  if (!Number.isFinite(payload.learning_rate) || payload.learning_rate <= 0) {
+    return "Learning rate must be greater than 0.";
+  }
+  return "";
+}
+
+async function startExperiment() {
+  if (!accessToken) {
+    setExperimentMessage("Please login before starting an experiment.", "error");
+    return;
+  }
+  const payload = readExperimentPayload();
+  const validationError = validateExperimentPayload(payload);
+  if (validationError) {
+    setExperimentMessage(validationError, "error");
+    return;
+  }
+
+  setExperimentBusy(true);
+  setExperimentMessage("Starting experiment...", "loading");
+  try {
+    const created = await apiRequest("/api/experiments", {
+      method: "POST",
+      body: JSON.stringify(payload)
+    });
+    selectedExperimentId = created.id;
+    experiments = [created, ...experiments.filter((experiment) => experiment.id !== created.id)];
+    renderExperimentStatus(created);
+    renderExperimentMetrics(created);
+    renderExperimentConvergenceChart([]);
+    setExperimentMessage("Experiment running...", "loading");
+
+    const executed = await apiRequest(`/api/experiments/${created.id}/run`, {
+      method: "POST"
+    });
+    experiments = [executed, ...experiments.filter((experiment) => experiment.id !== executed.id)];
+    renderExperimentStatus(executed);
+    renderExperimentHistory();
+
+    const result = await apiRequest(`/api/experiments/${created.id}/results`);
+    renderExperimentStatus(result);
+    renderExperimentMetrics(result);
+    renderExperimentConvergenceChart(result.convergence_history);
+    await loadExperimentHistory();
+
+    if (result.status === "COMPLETED") {
+      setExperimentMessage("Experiment completed.", "success");
+    } else if (result.status === "FAILED") {
+      setExperimentMessage(`Experiment failed. ${result.error_message || ""}`.trim(), "error");
+    } else {
+      setExperimentMessage(`Experiment status: ${result.status}.`, "loading");
+    }
+  } catch (error) {
+    setExperimentMessage(error.message, "error");
+  } finally {
+    setExperimentBusy(false);
+  }
+}
+
+function bindExperimentControls() {
+  const form = document.querySelector("#experiment-form");
+  const refreshButton = document.querySelector("#refresh-experiments-button");
+  if (!form || !refreshButton) {
+    return;
+  }
+  form.addEventListener("submit", (event) => {
+    event.preventDefault();
+    startExperiment();
+  });
+  refreshButton.addEventListener("click", () => {
+    if (!accessToken) {
+      setExperimentMessage("Please login to refresh experiments.", "error");
+      return;
+    }
+    setExperimentMessage("Refreshing experiment history...", "loading");
+    loadExperimentWorkspace();
+  });
 }
 
 function buildStandardization(rows) {
@@ -687,6 +1179,7 @@ function bindControls() {
 }
 
 async function init() {
+  bindExperimentControls();
   bindAuthControls();
   try {
     const [eda, centralized, fedavg, history, factories, centralizedModel, fedavgModels, standardizationRows] = await Promise.all([

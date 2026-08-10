@@ -28,6 +28,10 @@
           <svg viewBox="0 0 24 24"><path d="M12 20V10"/><path d="M18 20V4"/><path d="M6 20v-6"/></svg>
           Results
         </a>
+        <a href="#experiments">
+          <svg viewBox="0 0 24 24"><path d="M4 4h16v16H4z"/><path d="M8 9h8"/><path d="M8 13h5"/><path d="M8 17h3"/></svg>
+          Experiments
+        </a>
         <a href="#predict">
           <svg viewBox="0 0 24 24"><path d="M4 14a8 8 0 0 1 16 0"/><path d="M12 14 16 8"/><path d="M5 19h14"/></svg>
           Live Prediction
@@ -296,6 +300,126 @@
               </tr>
             </thead>
             <tbody id="results-table"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="section" id="experiments">
+        <div class="section-head">
+          <div>
+            <p class="eyebrow">Interactive FL Runs</p>
+            <h2>Federated Learning Experiments</h2>
+          </div>
+          <p>Create and run experiments through the FastAPI backend. Algorithms and saved results are loaded from the authenticated API session.</p>
+        </div>
+
+        <div class="experiment-notice" id="experiment-auth-notice" role="status">
+          Login to create experiments and view your experiment history.
+        </div>
+
+        <div class="experiments-layout">
+          <form class="card experiment-form" id="experiment-form">
+            <div class="card-head">
+              <h3>New Experiment</h3>
+              <span id="experiment-form-status">Requires login</span>
+            </div>
+
+            <div class="form-grid">
+              <label>
+                <span>Algorithm</span>
+                <select id="experiment-algorithm" name="algorithm" required disabled>
+                  <option value="">Login to load algorithms</option>
+                </select>
+              </label>
+
+              <label>
+                <span>Distribution</span>
+                <select id="experiment-distribution" name="distribution" required>
+                  <option value="iid">IID</option>
+                  <option value="moderate_non_iid">Moderate Non-IID</option>
+                  <option value="highly_non_iid" selected>Highly Non-IID</option>
+                </select>
+              </label>
+
+              <label>
+                <span>Global Rounds</span>
+                <input id="experiment-rounds" name="rounds" type="number" min="1" step="1" value="5" required>
+              </label>
+
+              <label>
+                <span>Local Epochs</span>
+                <input id="experiment-local-epochs" name="localEpochs" type="number" min="1" step="1" value="1" required>
+              </label>
+
+              <label>
+                <span>Learning Rate</span>
+                <input id="experiment-learning-rate" name="learningRate" type="number" min="0.0001" step="0.0001" value="0.01" required>
+              </label>
+            </div>
+
+            <div class="form-actions">
+              <button class="button primary form-button" id="start-experiment-button" type="submit">
+                <svg viewBox="0 0 24 24"><path d="M5 3v18l14-9Z"/></svg>
+                Start Experiment
+              </button>
+              <button class="button neutral form-button" id="refresh-experiments-button" type="button">
+                <svg viewBox="0 0 24 24"><path d="M4 4v6h6"/><path d="M20 20v-6h-6"/><path d="M20 9A8 8 0 0 0 6.7 5.7L4 10"/><path d="M4 15a8 8 0 0 0 13.3 3.3L20 14"/></svg>
+                Refresh
+              </button>
+            </div>
+            <div class="experiment-message" id="experiment-message" role="status"></div>
+          </form>
+
+          <article class="card experiment-detail-card" aria-live="polite">
+            <div class="card-head">
+              <h3>Experiment Status</h3>
+              <span id="experiment-detail-subtitle">No experiment selected</span>
+            </div>
+            <div id="experiment-status-grid" class="experiment-status-grid">
+              <div class="empty-state">Create an experiment or select one from history.</div>
+            </div>
+          </article>
+        </div>
+
+        <div class="experiments-layout results">
+          <article class="card">
+            <div class="card-head">
+              <h3>Final Metrics</h3>
+              <span id="experiment-metrics-subtitle">From stored backend result</span>
+            </div>
+            <div id="experiment-metrics-grid" class="experiment-metrics-grid">
+              <div class="empty-state">Completed experiment metrics will appear here.</div>
+            </div>
+          </article>
+
+          <article class="card">
+            <div class="card-head">
+              <h3>Convergence</h3>
+              <span>round-level validation metric</span>
+            </div>
+            <div id="experiment-convergence-chart" class="line-chart experiment-chart">
+              <div class="empty-state">No convergence history loaded.</div>
+            </div>
+          </article>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Algorithm</th>
+                <th>Distribution</th>
+                <th>Status</th>
+                <th>Recall</th>
+                <th>F1</th>
+                <th>Training Time</th>
+                <th>Created At</th>
+              </tr>
+            </thead>
+            <tbody id="experiment-history-table">
+              <tr><td colspan="8">Login to load experiment history.</td></tr>
+            </tbody>
           </table>
         </div>
       </section>

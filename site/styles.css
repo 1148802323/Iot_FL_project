@@ -263,6 +263,11 @@ h1 {
   border-color: var(--line-strong);
 }
 
+.button:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+
 .hero-panel {
   margin: 18px;
   border: 1px solid rgba(255, 255, 255, 0.18);
@@ -391,10 +396,15 @@ h1 {
 
 .results-layout,
 .factory-layout,
-.predict-layout {
+.predict-layout,
+.experiments-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(360px, 0.86fr);
   gap: 14px;
+}
+
+.experiments-layout.results {
+  grid-template-columns: minmax(360px, 0.74fr) minmax(0, 1fr);
 }
 
 .card {
@@ -895,12 +905,144 @@ pre {
   font-size: 13px;
 }
 
+.experiment-notice,
+.experiment-message {
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--muted);
+  padding: 10px 12px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.experiment-message {
+  margin: 0 16px 16px;
+}
+
+.experiment-notice.success,
+.experiment-message.success {
+  color: var(--green);
+  border-color: #b9dccd;
+  background: #e9f7f1;
+}
+
+.experiment-notice.error,
+.experiment-message.error {
+  color: var(--red);
+  border-color: #f0bcbc;
+  background: #fdecec;
+}
+
+.experiment-notice.loading,
+.experiment-message.loading {
+  color: var(--blue);
+  border-color: #bdd0ed;
+  background: #edf4ff;
+}
+
+.experiment-status-grid,
+.experiment-metrics-grid {
+  padding: 16px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.experiment-status-grid div,
+.experiment-metrics-grid div {
+  min-height: 72px;
+  display: grid;
+  align-content: center;
+  gap: 5px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfcfc;
+  padding: 12px;
+}
+
+.experiment-status-grid .empty-state,
+.experiment-metrics-grid .empty-state,
+.experiment-metrics-grid .load-error {
+  grid-column: 1 / -1;
+  min-height: auto;
+}
+
+.experiment-status-grid span,
+.experiment-metrics-grid span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.experiment-status-grid strong,
+.experiment-metrics-grid strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: 16px;
+}
+
+.experiment-metrics-grid strong {
+  font-size: 22px;
+}
+
+.status-pill {
+  display: inline-flex;
+  min-height: 24px;
+  align-items: center;
+  border-radius: 999px;
+  padding: 3px 9px;
+  background: #edf3f7;
+  color: var(--blue);
+  font-weight: 800;
+  font-size: 12px;
+}
+
+.status-pill.pending {
+  color: var(--amber);
+  background: #fff2d6;
+}
+
+.status-pill.running {
+  color: var(--blue);
+  background: #e8f0ff;
+}
+
+.status-pill.completed {
+  color: var(--green);
+  background: #e4f4ee;
+}
+
+.status-pill.failed {
+  color: var(--red);
+  background: #fde9e9;
+}
+
+.experiment-row {
+  cursor: pointer;
+}
+
+.experiment-row:hover td,
+.experiment-row.selected td {
+  background: #f4f8fa;
+}
+
+.experiment-chart {
+  display: grid;
+  align-items: center;
+}
+
 @media (max-width: 1120px) {
   .hero,
   .results-layout,
   .factory-layout,
   .predict-layout,
-  .auth-layout {
+  .auth-layout,
+  .experiments-layout,
+  .experiments-layout.results {
     grid-template-columns: 1fr;
   }
 
@@ -973,6 +1115,8 @@ pre {
   .summary-grid,
   .form-grid,
   .output-grid,
+  .experiment-status-grid,
+  .experiment-metrics-grid,
   .code-grid,
   .figure-grid {
     grid-template-columns: 1fr;
