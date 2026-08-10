@@ -105,6 +105,201 @@ Generated outputs:
 - `figures/failure_aware_fedavg_final_metrics.png`: final V1 metric comparison across IID/Non-IID settings.
 - `figures/failure_aware_vs_fedavg_metrics.png`: standard FedAvg vs failure-aware FedAvg comparison.
 
+## Proposed Method V4: Dynamic Failure-Aware FedAvg
+
+This contribution adds a standalone fourth aggregation method without modifying
+the existing FedAvg, V1, or V2 implementation files.
+
+Part 4 assigns client `i` the round-dependent aggregation score:
+
+```text
+score_i(t) = n_i * (1 + lambda_t * r_i)
+```
+
+where:
+
+- `n_i` is the number of local training samples;
+- `r_i` is the local machine-failure ratio; and
+- `lambda_t` controls the strength of failure-aware weighting at round `t`.
+
+The default linear schedule is:
+
+```text
+lambda_t = lambda_max * t / T
+```
+
+The implementation also provides two ablation alternatives:
+
+- `fixed`: uses `lambda_max` in every round;
+- `linear`: gradually increases the failure-aware contribution; and
+- `recall_adaptive`: updates lambda using the validation-recall gap, bounded by
+  zero and `lambda_max`.
+
+Run the default Part 4 experiment over five paired seeds and all three client
+distributions:
+
+```powershell
+python src/train_dynamic_failure_aware_variant4.py --schedule linear
+```
+
+Run the schedule ablation:
+
+```powershell
+python src/train_dynamic_failure_aware_variant4.py --schedule fixed --output-dir part4_outputs/fixed
+python src/train_dynamic_failure_aware_variant4.py --schedule linear --output-dir part4_outputs/linear
+python src/train_dynamic_failure_aware_variant4.py --schedule recall_adaptive --output-dir part4_outputs/adaptive
+```
+
+Quick smoke test:
+
+```powershell
+python src/train_dynamic_failure_aware_variant4.py --seeds 42 --strategies iid --rounds 2 --local-epochs 1 --output-dir smoke_part4
+```
+
+Part 4 generates:
+
+- `part4_predictions.csv`: validation, test, and optional round-level
+  probabilities in the standalone evaluator contract;
+- `part4_training_history.csv`: lambda, validation Recall, and mean client loss
+  by round;
+- `part4_models.json`: learned model coefficients and schedule metadata; and
+- `part4_manifest.json`: seeds, strategies, hyperparameters, and experiment
+  settings.
+
+## Standalone Multi-Algorithm Evaluation Framework
+
+The standalone evaluator compares algorithms through their observable
+prediction probabilities. It does not import or modify algorithm owners' source
+files, so implementations based on NumPy, PyTorch, TensorFlow, or Flower can be
+evaluated under one protocol.
+
+Each algorithm supplies a CSV with these required columns:
+
+| Column | Description |
+|---|---|
+| `UDI` | Unique AI4I observation identifier. |
+| `seed` | Paired experimental seed. |
+| `strategy` | `iid`, `moderate_non_iid`, or `highly_non_iid`. |
+| `split` | `validation` or `test`. |
+| `probability` | Positive-class probability in `[0, 1]`. |
+
+An optional `round` column enables convergence analysis. Final validation and
+test predictions use a blank or zero round value.
+
+### Evaluation protocol
+
+- The default experiment uses seeds `42, 52, 62, 72, 82`.
+- Each seed reconstructs the same stratified 60%/20%/20%
+  train/validation/test split for every algorithm.
+- The decision threshold is selected only on validation data by maximizing F1,
+  then locked before held-out test evaluation.
+- Algorithms are compared seed by seed rather than between unrelated runs.
+- Prediction inputs are checked for missing columns, invalid probability
+  ranges, unexpected or duplicate UDIs, unknown splits, and incomplete runs.
+
+### Reported dimensions
+
+Global predictive metrics:
+
+- Accuracy, Precision, Recall, Specificity;
+- F1 and Recall-oriented F2;
+- PR-AUC / Average Precision; and
+- Balanced Accuracy.
+
+Client-level and Non-IID metrics:
+
+- client-macro Recall, F1, PR-AUC, and Balanced Accuracy;
+- worst-client performance;
+- standard deviation and best-minus-worst client gap; and
+- client quantity variation, failure-rate variation, and label-distribution
+  Jensen-Shannon divergence.
+
+Statistical and convergence outputs:
+
+- mean, standard deviation, and completed-run count;
+- paired candidate-minus-FedAvg differences;
+- paired bootstrap 95% confidence intervals;
+- convergence round when round-level predictions are supplied; and
+- a conservative Non-IID evidence scorecard.
+
+### Cost-sensitive predictive-maintenance evaluation
+
+The framework supplements F1-oriented evaluation with a scenario-based cost
+model:
+
+```text
+C = C_FN * FN + C_FP * FP
+```
+
+The cost-optimal threshold is selected on validation data and locked before test
+evaluation. Configure the assumptions with:
+
+```powershell
+--false-negative-cost 10 --false-positive-cost 1
+```
+
+Ratios such as 5:1, 10:1, and 20:1 should be described as sensitivity scenarios
+unless verified factory financial data are available. The evaluator reports
+total cost and cost per 1,000 observations at both the F1-oriented and
+cost-oriented thresholds.
+
+### Running the unified comparison
+
+After all algorithm owners provide prediction CSV files, run:
+
+```powershell
+python standalone_non_iid_evaluator.py `
+  --prediction fedavg=predictions/fedavg.csv `
+  --prediction v1=predictions/v1.csv `
+  --prediction v2=predictions/v2.csv `
+  --prediction part4=part4_outputs/part4_predictions.csv `
+  --baseline fedavg `
+  --false-negative-cost 10 `
+  --false-positive-cost 1
+```
+
+Generated evaluation outputs:
+
+- `standalone_raw.csv`;
+- `standalone_client_metrics.csv`;
+- `standalone_summary.csv`;
+- `standalone_history.csv`;
+- `standalone_paired_bootstrap.csv`;
+- `standalone_non_iid_scorecard.csv`;
+- `standalone_errors.csv`; and
+- `standalone_manifest.json`.
+
+Run the automated evaluator tests:
+
+```powershell
+python -m unittest discover -s tests -v
+python standalone_non_iid_evaluator.py --self-test
+```
+
+### Reproducibility and validity notes
+
+- All algorithms must use the requested UDI splits and a comparable training
+  and tuning budget.
+- Test labels must not be used for training, schedule adaptation, threshold
+  selection, or hyperparameter tuning.
+- Five seeds provide preliminary uncertainty estimates; ten paired seeds are
+  preferable when computationally feasible.
+- Prediction provenance remains a team research-integrity responsibility.
+- Synthetic client partitions may not represent every real factory deployment.
+- Communication rounds are only a proxy for network cost unless serialized
+  upload and download bytes are measured.
+
+### Contribution boundary
+
+The Part 4 and evaluation contribution consists of:
+
+- new: `src/train_dynamic_failure_aware_variant4.py`;
+- extended: `standalone_non_iid_evaluator.py`;
+- new: `tests/test_evaluation_framework.py`; and
+- extended: this `README.md`.
+
+The existing centralized, FedAvg, V1, and V2 training scripts remain unchanged.
+
 ## FastAPI Backend, Database, And Login
 
 Install the project dependencies:
