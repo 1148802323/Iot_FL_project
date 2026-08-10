@@ -1,18 +1,23 @@
 from __future__ import annotations
 
+import csv
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import Depends, FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
-from iot_fl.backend.config import settings
+from iot_fl.backend.config import PROJECT_ROOT, settings
 from iot_fl.backend.database import SessionLocal, get_db, init_db
 from iot_fl.backend.dependencies import get_current_user, require_admin
-from iot_fl.backend.models import Factory, User
+from iot_fl.backend.models import Client, Factory, User
 from iot_fl.backend.schemas import (
+    ClientExperimentRead,
+    ClientRead,
+    ClientStatistics,
     HealthResponse,
     MessageResponse,
     TokenResponse,
@@ -25,7 +30,8 @@ from iot_fl.backend.security import (
     hash_password,
     verify_password,
 )
-from iot_fl.backend.seed import ensure_default_factories
+from iot_fl.backend.seed import ensure_factory_clients
+from iot_fl.config import TARGET
 
 
 @asynccontextmanager
@@ -33,7 +39,7 @@ async def lifespan(app_instance: FastAPI) -> AsyncIterator[None]:
     del app_instance
     init_db()
     with SessionLocal() as db:
-        ensure_default_factories(db)
+        ensure_factory_clients(db)
     yield
 
 
@@ -155,6 +161,177 @@ def me(current_user: User = Depends(get_current_user)) -> UserRead:
 def logout(current_user: User = Depends(get_current_user)) -> MessageResponse:
     del current_user
     return MessageResponse(message="Logged out")
+
+
+def _client_visible_to_user(client: Client, user: User) -> bool:
+    return user.role == "admin" or user.factory_id == client.factory_id
+
+
+def _get_authorized_client(
+    client_id: int,
+    db: Session,
+    current_user: User,
+) -> Client:
+    client = db.get(Client, client_id)
+    if client is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Client not found",
+        )
+    if not _client_visible_to_user(client, current_user):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Client belongs to another factory",
+        )
+    return client
+
+
+def _serialize_client(client: Client, *, include_dataset_path: bool) -> ClientRead:
+    payload = ClientRead.model_validate(client)
+    if not include_dataset_path:
+        payload.dataset_path = None
+    return payload
+
+
+def _dataset_absolute_path(client: Client) -> Path:
+    dataset_path = Path(client.dataset_path)
+    if dataset_path.is_absolute():
+        return dataset_path
+    return PROJECT_ROOT / dataset_path
+
+
+def _statistics_for_client(client: Client) -> ClientStatistics:
+    dataset_path = _dataset_absolute_path(client)
+    total_rows = client.train_rows + client.validation_rows
+    failure_modes: dict[str, int] = {}
+
+    if dataset_path.exists():
+        with dataset_path.open(newline="", encoding="utf-8") as handle:
+            reader = csv.DictReader(handle)
+            total_rows = 0
+            failure_count = 0
+            for row in reader:
+                total_rows += 1
+                failure_count += int(row.get(TARGET, "0") or 0)
+                failure_mode = row.get("failure_mode")
+                if failure_mode:
+                    failure_modes[failure_mode] = (
+                        failure_modes.get(failure_mode, 0) + 1
+                    )
+        failure_ratio = failure_count / total_rows if total_rows else 0.0
+    else:
+        failure_count = client.failure_count
+        failure_ratio = client.failure_ratio
+
+    return ClientStatistics(
+        id=client.id,
+        factory_id=client.factory_id,
+        name=client.name,
+        distribution_type=client.distribution_type,
+        total_rows=total_rows,
+        train_rows=client.train_rows,
+        validation_rows=client.validation_rows,
+        failure_count=failure_count,
+        failure_ratio=failure_ratio,
+        failure_modes=failure_modes,
+    )
+
+
+def _load_experiment_rows(distribution_type: str) -> list[ClientExperimentRead]:
+    experiment_files = [
+        PROJECT_ROOT / "reports" / "fedavg_baseline_results.csv",
+        PROJECT_ROOT / "reports" / "failure_aware_fedavg_results.csv",
+    ]
+    experiments: list[ClientExperimentRead] = []
+
+    for path in experiment_files:
+        if not path.exists():
+            continue
+        with path.open(newline="", encoding="utf-8") as handle:
+            for row in csv.DictReader(handle):
+                if row.get("strategy") != distribution_type:
+                    continue
+                experiments.append(
+                    ClientExperimentRead(
+                        strategy=row["strategy"],
+                        method=row["method"],
+                        rounds=int(row["rounds"]),
+                        local_epochs=int(row["local_epochs"]),
+                        threshold=float(row["threshold"]),
+                        accuracy=float(row["accuracy"]),
+                        precision=float(row["precision"]),
+                        recall=float(row["recall"]),
+                        f1=float(row["f1"]),
+                    )
+                )
+
+    return experiments
+
+
+@app.get(
+    "/api/clients",
+    response_model=list[ClientRead],
+    response_model_exclude_none=True,
+)
+def list_clients(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> list[ClientRead]:
+    statement = select(Client).order_by(Client.distribution_type, Client.factory_id)
+    if current_user.role != "admin":
+        statement = statement.where(Client.factory_id == current_user.factory_id)
+
+    clients = db.scalars(statement).all()
+    return [
+        _serialize_client(
+            client,
+            include_dataset_path=current_user.role == "admin",
+        )
+        for client in clients
+    ]
+
+
+@app.get(
+    "/api/clients/{client_id}",
+    response_model=ClientRead,
+    response_model_exclude_none=True,
+)
+def get_client(
+    client_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> ClientRead:
+    client = _get_authorized_client(client_id, db, current_user)
+    return _serialize_client(
+        client,
+        include_dataset_path=current_user.role == "admin",
+    )
+
+
+@app.get(
+    "/api/clients/{client_id}/statistics",
+    response_model=ClientStatistics,
+)
+def get_client_statistics(
+    client_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> ClientStatistics:
+    client = _get_authorized_client(client_id, db, current_user)
+    return _statistics_for_client(client)
+
+
+@app.get(
+    "/api/clients/{client_id}/experiments",
+    response_model=list[ClientExperimentRead],
+)
+def get_client_experiments(
+    client_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> list[ClientExperimentRead]:
+    client = _get_authorized_client(client_id, db, current_user)
+    return _load_experiment_rows(client.distribution_type)
 
 
 @app.get("/api/admin/users", response_model=list[UserRead])
