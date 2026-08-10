@@ -1,0 +1,173 @@
+{
+  "iid": {
+    "strategy": "iid",
+    "method": "fedavg_all_clients_weighted_logistic_regression",
+    "features": [
+      "air_temperature_k_z",
+      "process_temperature_k_z",
+      "rotational_speed_rpm_z",
+      "torque_nm_z",
+      "tool_wear_min_z",
+      "temperature_gap_k_z",
+      "power_proxy_z",
+      "Type_H",
+      "Type_L",
+      "Type_M"
+    ],
+    "intercept": -0.6580093913796429,
+    "coefficients": {
+      "air_temperature_k_z": 0.18965058765064544,
+      "process_temperature_k_z": -0.10854802674816044,
+      "rotational_speed_rpm_z": 0.9169921763934861,
+      "torque_nm_z": 0.9784449740443818,
+      "tool_wear_min_z": 0.6056635587235412,
+      "temperature_gap_k_z": -0.5398161985217794,
+      "power_proxy_z": 0.4829432768038837,
+      "Type_H": -0.19489963883751998,
+      "Type_L": -0.1829630370553184,
+      "Type_M": -0.2723550001086764
+    },
+    "threshold": 0.79,
+    "clients": [
+      {
+        "name": "factory_01",
+        "rows": 1203,
+        "failure_rate": 0.03325020781379884
+      },
+      {
+        "name": "factory_02",
+        "rows": 1228,
+        "failure_rate": 0.03745928338762215
+      },
+      {
+        "name": "factory_03",
+        "rows": 1180,
+        "failure_rate": 0.03474576271186441
+      },
+      {
+        "name": "factory_04",
+        "rows": 1214,
+        "failure_rate": 0.03212520593080725
+      },
+      {
+        "name": "factory_05",
+        "rows": 1175,
+        "failure_rate": 0.03148936170212766
+      }
+    ]
+  },
+  "moderate_non_iid": {
+    "strategy": "moderate_non_iid",
+    "method": "fedavg_all_clients_weighted_logistic_regression",
+    "features": [
+      "air_temperature_k_z",
+      "process_temperature_k_z",
+      "rotational_speed_rpm_z",
+      "torque_nm_z",
+      "tool_wear_min_z",
+      "temperature_gap_k_z",
+      "power_proxy_z",
+      "Type_H",
+      "Type_L",
+      "Type_M"
+    ],
+    "intercept": -0.6677107952893349,
+    "coefficients": {
+      "air_temperature_k_z": 0.18997022968152455,
+      "process_temperature_k_z": -0.10423358846206765,
+      "rotational_speed_rpm_z": 0.925113197052261,
+      "torque_nm_z": 0.9770038641440866,
+      "tool_wear_min_z": 0.6242977902042344,
+      "temperature_gap_k_z": -0.5340603813343027,
+      "power_proxy_z": 0.49885313532911846,
+      "Type_H": -0.18531862142479755,
+      "Type_L": -0.1827646029224654,
+      "Type_M": -0.29172845403157777
+    },
+    "threshold": 0.82,
+    "clients": [
+      {
+        "name": "factory_01",
+        "rows": 1221,
+        "failure_rate": 0.04095004095004095
+      },
+      {
+        "name": "factory_02",
+        "rows": 1163,
+        "failure_rate": 0.029234737747205503
+      },
+      {
+        "name": "factory_03",
+        "rows": 1155,
+        "failure_rate": 0.03896103896103896
+      },
+      {
+        "name": "factory_04",
+        "rows": 1193,
+        "failure_rate": 0.03185247275775356
+      },
+      {
+        "name": "factory_05",
+        "rows": 1268,
+        "failure_rate": 0.028391167192429023
+      }
+    ]
+  },
+  "highly_non_iid": {
+    "strategy": "highly_non_iid",
+    "method": "fedavg_all_clients_weighted_logistic_regression",
+    "features": [
+      "air_temperature_k_z",
+      "process_temperature_k_z",
+      "rotational_speed_rpm_z",
+      "torque_nm_z",
+      "tool_wear_min_z",
+      "temperature_gap_k_z",
+      "power_proxy_z",
+      "Type_H",
+      "Type_L",
+      "Type_M"
+    ],
+    "intercept": -0.5935155837701769,
+    "coefficients": {
+      "air_temperature_k_z": 0.18468615792249457,
+      "process_temperature_k_z": -0.05477493592467215,
+      "rotational_speed_rpm_z": 0.8552826664104612,
+      "torque_nm_z": 0.8674689538008864,
+      "tool_wear_min_z": 0.7461882108062574,
+      "temperature_gap_k_z": -0.45019910425003756,
+      "power_proxy_z": 0.4537879918713444,
+      "Type_H": -0.1915034143074212,
+      "Type_L": -0.2844841274925882,
+      "Type_M": -0.11040698015922269
+    },
+    "threshold": 0.82,
+    "clients": [
+      {
+        "name": "factory_01",
+        "rows": 1227,
+        "failure_rate": 0.05134474327628362
+      },
+      {
+        "name": "factory_02",
+        "rows": 1188,
+        "failure_rate": 0.04292929292929293
+      },
+      {
+        "name": "factory_03",
+        "rows": 1238,
+        "failure_rate": 0.0444264943457189
+      },
+      {
+        "name": "factory_04",
+        "rows": 1161,
+        "failure_rate": 0.02153316106804479
+      },
+      {
+        "name": "factory_05",
+        "rows": 1186,
+        "failure_rate": 0.007588532883642495
+      }
+    ]
+  }
+}

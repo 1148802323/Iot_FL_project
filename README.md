@@ -299,3 +299,70 @@ The Part 4 and evaluation contribution consists of:
 - extended: this `README.md`.
 
 The existing centralized, FedAvg, V1, and V2 training scripts remain unchanged.
+
+## FastAPI Backend, Database, And Login
+
+Install the project dependencies:
+
+```bash
+python -m pip install -r requirements.txt
+```
+
+Create a local `.env` file from `.env.example` and replace `JWT_SECRET` before
+using the API outside local development. The default SQLite database is
+`iot_fl_app.db`; it is generated locally and ignored by Git.
+
+Run the API:
+
+```bash
+PYTHONPATH=src uvicorn iot_fl.backend.main:app --reload
+```
+
+The backend creates the `users`, `factories`, and `clients` tables on startup.
+It scans the existing IID, moderate Non-IID, and highly Non-IID factory CSVs
+under `data/factories/` and upserts one client record per factory/distribution
+pair. The seed is repeatable and refreshes row/failure metadata without
+duplicating records. Available authentication and client-management endpoints:
+
+- `GET /api/health`
+- `POST /api/auth/register`
+- `POST /api/auth/login`
+- `GET /api/auth/me`
+- `POST /api/auth/logout`
+- `GET /api/clients`
+- `GET /api/clients/{client_id}`
+- `GET /api/clients/{client_id}/statistics`
+- `GET /api/clients/{client_id}/experiments`
+- `GET /api/admin/users`
+
+Client users must be registered with a valid `factory_id`; admin users must not
+be bound to a factory. Admin users can view all clients and their
+`dataset_path`; client users can view only their own factory's clients and do
+not receive `dataset_path`. Client statistics are computed from the stored CSV
+metadata and the existing CSV files; experiment summaries reuse the generated
+FedAvg and Failure-Aware result CSVs.
+
+To initialize or refresh factory/client records without starting the API:
+
+```bash
+PYTHONPATH=src python -m iot_fl.backend.seed
+```
+
+The static website includes a Login section that calls these endpoints when the
+FastAPI service is running.
+
+Serve the static website from another terminal:
+
+```bash
+python -m http.server 8080 --bind 127.0.0.1
+```
+
+Then open `http://127.0.0.1:8080/site/`. The Login section calls the API at
+`http://127.0.0.1:8000` by default. The site is served from the project root so
+that it can load `reports/`, `figures/`, and `data/processed/` correctly.
+
+Run the backend tests:
+
+```bash
+PYTHONPATH=src pytest -q tests/test_backend_auth.py
+```
