@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from iot_fl.algorithms import run_experiment
 from iot_fl.backend.models import Experiment, User
 from iot_fl.backend.schemas import ExperimentCreate
+from iot_fl.backend.services.dataset_service import get_dataset
 
 
 PENDING = "PENDING"
@@ -26,8 +27,16 @@ def create_experiment(
     current_user: User,
     payload: ExperimentCreate,
 ) -> Experiment:
+    if payload.dataset_id is not None:
+        dataset = get_dataset(db, current_user, payload.dataset_id)
+        if dataset is None:
+            raise ValueError("Dataset not found.")
+        if dataset.status != "READY":
+            raise ValueError("Dataset is not ready for experiments.")
+
     experiment = Experiment(
         user_id=current_user.id,
+        dataset_id=payload.dataset_id,
         algorithm=payload.algorithm,
         distribution=payload.distribution,
         rounds=payload.rounds,
@@ -75,14 +84,18 @@ def run_managed_experiment(db: Session, experiment: Experiment) -> Experiment:
     db.refresh(experiment)
 
     try:
+        config = {
+            "rounds": experiment.rounds,
+            "local_epochs": experiment.local_epochs,
+            "learning_rate": experiment.learning_rate,
+        }
+        if experiment.dataset is not None:
+            config["data_path"] = experiment.dataset.processed_path
+            config["factory_root"] = experiment.dataset.factory_root
         result = run_experiment(
             algorithm=experiment.algorithm,
             distribution=experiment.distribution,
-            config={
-                "rounds": experiment.rounds,
-                "local_epochs": experiment.local_epochs,
-                "learning_rate": experiment.learning_rate,
-            },
+            config=config,
         )
     except Exception as error:
         experiment.status = FAILED
@@ -125,4 +138,3 @@ def optional_float(value: Any) -> float | None:
     if value is None:
         return None
     return float(value)
-

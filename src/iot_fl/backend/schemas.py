@@ -121,6 +121,7 @@ class ExperimentCreate(BaseModel):
     rounds: int = Field(gt=0)
     local_epochs: int = Field(gt=0)
     learning_rate: float = Field(gt=0)
+    dataset_id: int | None = Field(default=None, gt=0)
 
     @field_validator("algorithm")
     @classmethod
@@ -144,6 +145,7 @@ class ExperimentResponse(BaseModel):
 
     id: int
     user_id: int
+    dataset_id: int | None = None
     algorithm: str
     distribution: str
     rounds: int
@@ -164,3 +166,16 @@ class ExperimentResponse(BaseModel):
 
 class ExperimentResult(ExperimentResponse):
     convergence_history: list[dict[str, object]] = Field(default_factory=list)
+
+
+class UploadedDatasetRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    user_id: int
+    original_filename: str
+    rows: int
+    columns: int
+    status: str
+    error_message: str | None = None
+    created_at: datetime

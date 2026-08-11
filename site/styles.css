@@ -407,6 +407,10 @@ h1 {
   grid-template-columns: minmax(360px, 0.74fr) minmax(0, 1fr);
 }
 
+.experiments-layout.dataset-layout {
+  grid-template-columns: minmax(360px, 0.62fr) minmax(0, 1fr);
+}
+
 .card {
   min-width: 0;
 }
@@ -1035,6 +1039,85 @@ pre {
   align-items: center;
 }
 
+.dataset-upload-body {
+  padding: 16px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 12px;
+}
+
+.dataset-upload-body label {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+}
+
+.dataset-upload-body label span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.dataset-upload-body input {
+  width: 100%;
+  min-height: 40px;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  background: #ffffff;
+  color: var(--ink);
+  padding: 8px 11px;
+  font: inherit;
+}
+
+.dataset-list {
+  padding: 16px;
+  display: grid;
+  gap: 10px;
+}
+
+.dataset-item {
+  width: 100%;
+  min-height: 68px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfcfc;
+  color: var(--ink);
+  padding: 10px 12px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.dataset-item:hover {
+  background: #f4f8fa;
+}
+
+.dataset-item strong,
+.dataset-item span,
+.dataset-item small {
+  display: block;
+}
+
+.dataset-item strong {
+  margin-bottom: 4px;
+  font-size: 13px;
+}
+
+.dataset-item span,
+.dataset-item small {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.dataset-item small {
+  color: var(--red);
+}
+
 @media (max-width: 1120px) {
   .hero,
   .results-layout,
@@ -1042,7 +1125,8 @@ pre {
   .predict-layout,
   .auth-layout,
   .experiments-layout,
-  .experiments-layout.results {
+  .experiments-layout.results,
+  .experiments-layout.dataset-layout {
     grid-template-columns: 1fr;
   }
 
@@ -1137,5 +1221,10 @@ pre {
   .risk-panel {
     grid-template-columns: 1fr;
     justify-items: start;
+  }
+
+  .dataset-upload-body,
+  .dataset-item {
+    grid-template-columns: 1fr;
   }
 }

@@ -91,6 +91,34 @@ class User(Base):
 
     factory: Mapped[Factory | None] = relationship(back_populates="users")
     experiments: Mapped[list["Experiment"]] = relationship(back_populates="user")
+    uploaded_datasets: Mapped[list["UploadedDataset"]] = relationship(back_populates="user")
+
+
+class UploadedDataset(Base):
+    __tablename__ = "uploaded_datasets"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id"),
+        index=True,
+        nullable=False,
+    )
+    original_filename: Mapped[str] = mapped_column(String(255), nullable=False)
+    stored_path: Mapped[str] = mapped_column(String(500), nullable=False)
+    processed_path: Mapped[str] = mapped_column(String(500), nullable=False)
+    factory_root: Mapped[str] = mapped_column(String(500), nullable=False)
+    rows: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    columns: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    status: Mapped[str] = mapped_column(String(20), default="READY", index=True, nullable=False)
+    error_message: Mapped[str | None] = mapped_column(String(1000), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+
+    user: Mapped[User] = relationship(back_populates="uploaded_datasets")
+    experiments: Mapped[list["Experiment"]] = relationship(back_populates="dataset")
 
 
 class Experiment(Base):
@@ -101,6 +129,11 @@ class Experiment(Base):
         ForeignKey("users.id"),
         index=True,
         nullable=False,
+    )
+    dataset_id: Mapped[int | None] = mapped_column(
+        ForeignKey("uploaded_datasets.id"),
+        index=True,
+        nullable=True,
     )
     algorithm: Mapped[str] = mapped_column(String(80), index=True, nullable=False)
     distribution: Mapped[str] = mapped_column(String(50), index=True, nullable=False)
@@ -129,3 +162,4 @@ class Experiment(Base):
     finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     user: Mapped[User] = relationship(back_populates="experiments")
+    dataset: Mapped[UploadedDataset | None] = relationship(back_populates="experiments")

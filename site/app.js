@@ -31,6 +31,7 @@ let accessToken = window.localStorage.getItem(tokenStorageKey) || "";
 let currentUser = null;
 let algorithmOptions = [];
 let experiments = [];
+let uploadedDatasets = [];
 let selectedExperimentId = null;
 let experimentBusy = false;
 
@@ -147,8 +148,9 @@ function apiErrorMessage(payload, fallback) {
 }
 
 async function apiRequest(path, options = {}) {
+  const isFormData = options.body instanceof FormData;
   const headers = {
-    "Content-Type": "application/json",
+    ...(isFormData ? {} : { "Content-Type": "application/json" }),
     ...(options.headers || {})
   };
   if (accessToken) {
@@ -353,26 +355,43 @@ function setExperimentMessage(message, type = "") {
   target.className = `experiment-message ${type}`.trim();
 }
 
+function setDatasetMessage(message, type = "") {
+  const target = document.querySelector("#dataset-message");
+  if (!target) {
+    return;
+  }
+  target.textContent = message;
+  target.className = `experiment-message ${type}`.trim();
+}
+
 function setExperimentBusy(isBusy) {
   experimentBusy = isBusy;
   const startButton = document.querySelector("#start-experiment-button");
   const refreshButton = document.querySelector("#refresh-experiments-button");
+  const uploadButton = document.querySelector("#upload-dataset-button");
   if (startButton) {
     startButton.disabled = isBusy || !accessToken;
   }
   if (refreshButton) {
     refreshButton.disabled = isBusy || !accessToken;
   }
+  if (uploadButton) {
+    uploadButton.disabled = isBusy || !accessToken;
+  }
 }
 
 function renderExperimentsLoggedOut() {
   algorithmOptions = [];
   experiments = [];
+  uploadedDatasets = [];
   selectedExperimentId = null;
   const notice = document.querySelector("#experiment-auth-notice");
   const algorithmSelect = document.querySelector("#experiment-algorithm");
   const formStatus = document.querySelector("#experiment-form-status");
   const history = document.querySelector("#experiment-history-table");
+  const datasetSelect = document.querySelector("#experiment-dataset");
+  const datasetList = document.querySelector("#dataset-list");
+  const datasetSubtitle = document.querySelector("#dataset-list-subtitle");
   const statusGrid = document.querySelector("#experiment-status-grid");
   const metricsGrid = document.querySelector("#experiment-metrics-grid");
   const chart = document.querySelector("#experiment-convergence-chart");
@@ -391,6 +410,16 @@ function renderExperimentsLoggedOut() {
   if (history) {
     history.innerHTML = `<tr><td colspan="8">Login to load experiment history.</td></tr>`;
   }
+  if (datasetSelect) {
+    datasetSelect.innerHTML = `<option value="">Default project dataset</option>`;
+    datasetSelect.disabled = true;
+  }
+  if (datasetList) {
+    datasetList.innerHTML = `<div class="empty-state">Login to view uploaded datasets.</div>`;
+  }
+  if (datasetSubtitle) {
+    datasetSubtitle.textContent = "Default dataset is always available";
+  }
   if (statusGrid) {
     statusGrid.innerHTML = `<div class="empty-state">Login to create experiments and view status.</div>`;
   }
@@ -401,6 +430,7 @@ function renderExperimentsLoggedOut() {
     chart.innerHTML = `<div class="empty-state">No convergence history loaded.</div>`;
   }
   setExperimentMessage("");
+  setDatasetMessage("");
   setExperimentBusy(false);
 }
 
@@ -418,6 +448,55 @@ function populateAlgorithmSelect() {
     <option value="${algorithm.name}">${algorithm.display_name}</option>
   `).join("");
   select.disabled = false;
+}
+
+function populateDatasetSelect() {
+  const select = document.querySelector("#experiment-dataset");
+  if (!select) {
+    return;
+  }
+  const options = [
+    `<option value="">Default project dataset</option>`,
+    ...uploadedDatasets
+      .filter((dataset) => dataset.status === "READY")
+      .map((dataset) => `
+        <option value="${dataset.id}">#${dataset.id} ${dataset.original_filename} (${dataset.rows} rows)</option>
+      `)
+  ];
+  select.innerHTML = options.join("");
+  select.disabled = !accessToken;
+}
+
+function renderDatasetList() {
+  const target = document.querySelector("#dataset-list");
+  const subtitle = document.querySelector("#dataset-list-subtitle");
+  if (!target || !subtitle) {
+    return;
+  }
+  subtitle.textContent = `${uploadedDatasets.length} uploaded dataset${uploadedDatasets.length === 1 ? "" : "s"}`;
+  if (!uploadedDatasets.length) {
+    target.innerHTML = `<div class="empty-state">No uploaded datasets yet. Experiments will use the default project dataset.</div>`;
+    return;
+  }
+  target.innerHTML = uploadedDatasets.map((dataset) => `
+    <button class="dataset-item" type="button" data-dataset-id="${dataset.id}">
+      <div>
+        <strong>#${dataset.id} ${dataset.original_filename}</strong>
+        <span>${dataset.rows.toLocaleString("en-US")} rows / ${dataset.columns} columns / ${formatDateTime(dataset.created_at)}</span>
+        ${dataset.error_message ? `<small>${dataset.error_message}</small>` : ""}
+      </div>
+      <span class="${statusClass(dataset.status)}">${dataset.status}</span>
+    </button>
+  `).join("");
+  target.querySelectorAll(".dataset-item").forEach((item) => {
+    item.addEventListener("click", () => {
+      const select = document.querySelector("#experiment-dataset");
+      if (select) {
+        select.value = item.dataset.datasetId;
+      }
+      setDatasetMessage(`Selected dataset #${item.dataset.datasetId} for the next experiment.`, "success");
+    });
+  });
 }
 
 function renderExperimentHistory() {
@@ -616,6 +695,12 @@ async function loadExperimentHistory() {
   }
 }
 
+async function loadDatasets() {
+  uploadedDatasets = await apiRequest("/api/datasets");
+  populateDatasetSelect();
+  renderDatasetList();
+}
+
 async function loadExperimentWorkspace() {
   if (!accessToken) {
     renderExperimentsLoggedOut();
@@ -628,6 +713,7 @@ async function loadExperimentWorkspace() {
   }
   try {
     await loadAlgorithms();
+    await loadDatasets();
     await loadExperimentHistory();
     if (notice) {
       notice.textContent = currentUser
@@ -636,6 +722,7 @@ async function loadExperimentWorkspace() {
       notice.className = "experiment-notice success";
     }
     setExperimentMessage("");
+    setDatasetMessage("");
     setExperimentBusy(false);
   } catch (error) {
     if (notice) {
@@ -664,13 +751,18 @@ async function selectExperiment(experimentId) {
 }
 
 function readExperimentPayload() {
-  return {
+  const datasetValue = document.querySelector("#experiment-dataset").value;
+  const payload = {
     algorithm: document.querySelector("#experiment-algorithm").value,
     distribution: document.querySelector("#experiment-distribution").value,
     rounds: Number(document.querySelector("#experiment-rounds").value),
     local_epochs: Number(document.querySelector("#experiment-local-epochs").value),
     learning_rate: Number(document.querySelector("#experiment-learning-rate").value)
   };
+  if (datasetValue) {
+    payload.dataset_id = Number(datasetValue);
+  }
+  return payload;
 }
 
 function validateExperimentPayload(payload) {
@@ -745,10 +837,49 @@ async function startExperiment() {
   }
 }
 
+async function uploadDataset() {
+  if (!accessToken) {
+    setDatasetMessage("Please login before uploading a dataset.", "error");
+    return;
+  }
+  const fileInput = document.querySelector("#dataset-file");
+  const file = fileInput?.files?.[0];
+  if (!file) {
+    setDatasetMessage("Choose a CSV file first.", "error");
+    return;
+  }
+  const formData = new FormData();
+  formData.append("file", file);
+  setExperimentBusy(true);
+  setDatasetMessage("Uploading and preparing dataset...", "loading");
+  try {
+    const dataset = await apiRequest("/api/datasets", {
+      method: "POST",
+      body: formData
+    });
+    uploadedDatasets = [dataset, ...uploadedDatasets.filter((item) => item.id !== dataset.id)];
+    populateDatasetSelect();
+    renderDatasetList();
+    const select = document.querySelector("#experiment-dataset");
+    if (select) {
+      select.value = String(dataset.id);
+    }
+    if (fileInput) {
+      fileInput.value = "";
+    }
+    setDatasetMessage(`Dataset #${dataset.id} is ready and selected.`, "success");
+  } catch (error) {
+    setDatasetMessage(error.message, "error");
+  } finally {
+    setExperimentBusy(false);
+  }
+}
+
 function bindExperimentControls() {
   const form = document.querySelector("#experiment-form");
   const refreshButton = document.querySelector("#refresh-experiments-button");
-  if (!form || !refreshButton) {
+  const uploadForm = document.querySelector("#dataset-upload-form");
+  if (!form || !refreshButton || !uploadForm) {
     return;
   }
   form.addEventListener("submit", (event) => {
@@ -762,6 +893,10 @@ function bindExperimentControls() {
     }
     setExperimentMessage("Refreshing experiment history...", "loading");
     loadExperimentWorkspace();
+  });
+  uploadForm.addEventListener("submit", (event) => {
+    event.preventDefault();
+    uploadDataset();
   });
 }
 

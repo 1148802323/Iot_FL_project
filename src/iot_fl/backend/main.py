@@ -5,7 +5,7 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import Depends, FastAPI, HTTPException, status
+from fastapi import Depends, FastAPI, File, HTTPException, UploadFile, status
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
@@ -26,6 +26,7 @@ from iot_fl.backend.schemas import (
     HealthResponse,
     MessageResponse,
     TokenResponse,
+    UploadedDatasetRead,
     UserCreate,
     UserLogin,
     UserRead,
@@ -41,6 +42,12 @@ from iot_fl.backend.services.experiment_service import (
     get_experiment,
     list_experiments,
     run_managed_experiment,
+)
+from iot_fl.backend.services.dataset_service import (
+    DatasetValidationError,
+    get_dataset,
+    list_datasets,
+    save_uploaded_dataset,
 )
 from iot_fl.config import TARGET
 
@@ -306,6 +313,63 @@ def _get_visible_experiment(
     return experiment
 
 
+def _get_visible_dataset(
+    dataset_id: int,
+    db: Session,
+    current_user: User,
+):
+    dataset = get_dataset(db, current_user, dataset_id)
+    if dataset is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Dataset not found",
+        )
+    return dataset
+
+
+@app.get("/api/datasets", response_model=list[UploadedDatasetRead])
+def list_user_datasets(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> list[UploadedDatasetRead]:
+    return [
+        UploadedDatasetRead.model_validate(dataset)
+        for dataset in list_datasets(db, current_user)
+    ]
+
+
+@app.post(
+    "/api/datasets",
+    response_model=UploadedDatasetRead,
+    status_code=status.HTTP_201_CREATED,
+)
+def upload_user_dataset(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> UploadedDatasetRead:
+    try:
+        dataset = save_uploaded_dataset(db, current_user, file.filename or "dataset.csv", file.file)
+    except DatasetValidationError as error:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(error),
+        ) from error
+    finally:
+        file.file.close()
+    return UploadedDatasetRead.model_validate(dataset)
+
+
+@app.get("/api/datasets/{dataset_id}", response_model=UploadedDatasetRead)
+def get_user_dataset(
+    dataset_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> UploadedDatasetRead:
+    dataset = _get_visible_dataset(dataset_id, db, current_user)
+    return UploadedDatasetRead.model_validate(dataset)
+
+
 @app.get("/api/experiments", response_model=list[ExperimentResponse])
 def list_user_experiments(
     db: Session = Depends(get_db),
@@ -327,7 +391,13 @@ def create_user_experiment(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> ExperimentResponse:
-    experiment = create_experiment(db, current_user, payload)
+    try:
+        experiment = create_experiment(db, current_user, payload)
+    except ValueError as error:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(error),
+        ) from error
     return ExperimentResponse.model_validate(experiment)
 
 

@@ -17,7 +17,7 @@ from iot_fl.backend.models import Factory
 
 
 @pytest.fixture()
-def client(tmp_path: Path):
+def client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     database_url = f"sqlite:///{tmp_path / 'test_experiments.db'}"
     engine = create_engine(
         database_url,
@@ -29,6 +29,10 @@ def client(tmp_path: Path):
         bind=engine,
     )
     Base.metadata.create_all(bind=engine)
+    monkeypatch.setattr(
+        "iot_fl.backend.services.dataset_service.UPLOAD_ROOT",
+        tmp_path / "uploads",
+    )
 
     with testing_session() as db:
         db.add_all(
@@ -97,6 +101,45 @@ def create_experiment(client: TestClient, token: str, **overrides: object) -> di
     return response.json()
 
 
+def sample_dataset_csv() -> str:
+    rows = [
+        "UDI,Product ID,Type,Air temperature [K],Process temperature [K],Rotational speed [rpm],Torque [Nm],Tool wear [min],Machine failure,TWF,HDF,PWF,OSF,RNF",
+    ]
+    for index in range(1, 31):
+        failure = 1 if index % 10 == 0 else 0
+        rows.append(
+            ",".join(
+                [
+                    str(index),
+                    f"M{index:05d}",
+                    ["L", "M", "H"][index % 3],
+                    str(298.0 + index * 0.1),
+                    str(308.0 + index * 0.1),
+                    str(1300 + index * 7),
+                    str(35.0 + index * 0.4),
+                    str(40 + index),
+                    str(failure),
+                    "1" if failure and index % 2 == 0 else "0",
+                    "1" if failure and index % 2 == 1 else "0",
+                    "0",
+                    "0",
+                    "0",
+                ]
+            )
+        )
+    return "\n".join(rows)
+
+
+def upload_dataset(client: TestClient, token: str) -> dict[str, object]:
+    response = client.post(
+        "/api/datasets",
+        files={"file": ("uploaded.csv", sample_dataset_csv(), "text/csv")},
+        headers=bearer(token),
+    )
+    assert response.status_code == 201
+    return response.json()
+
+
 def test_algorithms_endpoint_lists_registry(client: TestClient) -> None:
     token = register_user(client, username="algorithm_user")
 
@@ -130,6 +173,35 @@ def test_create_and_retrieve_experiment(client: TestClient) -> None:
     detail = client.get(f"/api/experiments/{created['id']}", headers=bearer(token))
     assert detail.status_code == 200
     assert detail.json()["id"] == created["id"]
+
+
+def test_upload_dataset_and_create_experiment_with_dataset(client: TestClient) -> None:
+    token = register_user(client, username="dataset_owner")
+    dataset = upload_dataset(client, token)
+
+    assert dataset["status"] == "READY"
+    assert dataset["rows"] == 30
+    assert dataset["columns"] > 10
+
+    listing = client.get("/api/datasets", headers=bearer(token))
+    assert listing.status_code == 200
+    assert [item["id"] for item in listing.json()] == [dataset["id"]]
+
+    created = create_experiment(client, token, dataset_id=dataset["id"])
+    assert created["dataset_id"] == dataset["id"]
+
+
+def test_upload_dataset_rejects_invalid_csv(client: TestClient) -> None:
+    token = register_user(client, username="bad_dataset_owner")
+
+    response = client.post(
+        "/api/datasets",
+        files={"file": ("bad.csv", "UDI,Machine failure\n1,0\n", "text/csv")},
+        headers=bearer(token),
+    )
+
+    assert response.status_code == 400
+    assert "Dataset must contain AI4I columns" in response.text
 
 
 def test_create_rejects_invalid_algorithm_and_distribution(client: TestClient) -> None:
@@ -175,6 +247,27 @@ def test_experiment_ownership_and_admin_visibility(client: TestClient) -> None:
     admin_detail = client.get(f"/api/experiments/{created['id']}", headers=bearer(admin_token))
     assert admin_detail.status_code == 200
     assert admin_detail.json()["id"] == created["id"]
+
+
+def test_dataset_ownership(client: TestClient) -> None:
+    owner_token = register_user(client, username="dataset_visible_owner")
+    other_token = register_user(client, username="dataset_visible_other", factory_id=2)
+    admin_token = register_user(client, username="dataset_visible_admin", role="admin", factory_id=None)
+    dataset = upload_dataset(client, owner_token)
+
+    other_detail = client.get(f"/api/datasets/{dataset['id']}", headers=bearer(other_token))
+    assert other_detail.status_code == 404
+
+    other_create = client.post(
+        "/api/experiments",
+        json=experiment_payload(dataset_id=dataset["id"]),
+        headers=bearer(other_token),
+    )
+    assert other_create.status_code == 400
+    assert "Dataset not found" in other_create.text
+
+    admin_detail = client.get(f"/api/datasets/{dataset['id']}", headers=bearer(admin_token))
+    assert admin_detail.status_code == 200
 
 
 def test_successful_experiment_run_persists_results(
@@ -223,6 +316,45 @@ def test_successful_experiment_run_persists_results(
     assert results.json()["convergence_history"] == [{"round": 1, "val_f1": 0.7}]
 
 
+def test_dataset_backed_experiment_passes_dataset_config(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    token = register_user(client, username="dataset_runner")
+    dataset = upload_dataset(client, token)
+    created = create_experiment(client, token, dataset_id=dataset["id"])
+
+    def fake_run_experiment(
+        algorithm: str,
+        distribution: str,
+        config: dict[str, object],
+    ) -> dict[str, object]:
+        del algorithm, distribution
+        assert str(config["data_path"]).endswith("processed.csv")
+        assert str(config["factory_root"]).endswith("factories")
+        return {
+            "algorithm": "fedavg",
+            "distribution": "iid",
+            "accuracy": 0.9,
+            "precision": 0.8,
+            "recall": 0.7,
+            "f1": 0.75,
+            "communication_cost": 5,
+            "training_time": 0.5,
+            "rounds": 5,
+            "convergence_history": [],
+        }
+
+    monkeypatch.setattr(
+        "iot_fl.backend.services.experiment_service.run_experiment",
+        fake_run_experiment,
+    )
+
+    run_response = client.post(f"/api/experiments/{created['id']}/run", headers=bearer(token))
+    assert run_response.status_code == 200
+    assert run_response.json()["status"] == "COMPLETED"
+
+
 def test_failed_experiment_run_is_recorded(
     client: TestClient,
     monkeypatch: pytest.MonkeyPatch,
@@ -249,4 +381,3 @@ def test_failed_experiment_run_is_recorded(
     assert body["status"] == "FAILED"
     assert body["error_message"] == "training failed"
     assert body["accuracy"] is None
-

@@ -355,6 +355,13 @@
                 <span>Learning Rate</span>
                 <input id="experiment-learning-rate" name="learningRate" type="number" min="0.0001" step="0.0001" value="0.01" required>
               </label>
+
+              <label>
+                <span>Dataset</span>
+                <select id="experiment-dataset" name="dataset">
+                  <option value="">Default project dataset</option>
+                </select>
+              </label>
             </div>
 
             <div class="form-actions">
@@ -377,6 +384,36 @@
             </div>
             <div id="experiment-status-grid" class="experiment-status-grid">
               <div class="empty-state">Create an experiment or select one from history.</div>
+            </div>
+          </article>
+        </div>
+
+        <div class="experiments-layout dataset-layout">
+          <form class="card dataset-upload-card" id="dataset-upload-form">
+            <div class="card-head">
+              <h3>Upload Dataset</h3>
+              <span>CSV with AI4I columns</span>
+            </div>
+            <div class="dataset-upload-body">
+              <label>
+                <span>Dataset CSV</span>
+                <input id="dataset-file" name="datasetFile" type="file" accept=".csv,text/csv">
+              </label>
+              <button class="button secondary dark form-button" id="upload-dataset-button" type="submit">
+                <svg viewBox="0 0 24 24"><path d="M12 16V4"/><path d="m7 9 5-5 5 5"/><path d="M5 20h14"/></svg>
+                Upload Dataset
+              </button>
+            </div>
+            <div class="experiment-message" id="dataset-message" role="status"></div>
+          </form>
+
+          <article class="card">
+            <div class="card-head">
+              <h3>Available Datasets</h3>
+              <span id="dataset-list-subtitle">Default dataset is always available</span>
+            </div>
+            <div id="dataset-list" class="dataset-list">
+              <div class="empty-state">Login to view uploaded datasets.</div>
             </div>
           </article>
         </div>
