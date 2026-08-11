@@ -16,10 +16,14 @@ from iot_fl.backend.database import SessionLocal, get_db, init_db
 from iot_fl.backend.dependencies import get_current_user, require_admin
 from iot_fl.backend.models import Client, Experiment, Factory, User
 from iot_fl.backend.schemas import (
+    AdminDashboardResponse,
     AlgorithmRead,
+    ClientDashboardResponse,
     ClientExperimentRead,
     ClientRead,
     ClientStatistics,
+    ExperimentCompareRequest,
+    ExperimentComparisonResponse,
     ExperimentCreate,
     ExperimentResponse,
     ExperimentResult,
@@ -37,6 +41,13 @@ from iot_fl.backend.security import (
     verify_password,
 )
 from iot_fl.backend.seed import ensure_factory_clients
+from iot_fl.backend.services.dashboard_service import (
+    DashboardAccessError,
+    ExperimentComparisonError,
+    build_admin_dashboard,
+    build_client_dashboard,
+    compare_completed_experiments,
+)
 from iot_fl.backend.services.experiment_service import (
     create_experiment,
     get_experiment,
@@ -399,6 +410,53 @@ def create_user_experiment(
             detail=str(error),
         ) from error
     return ExperimentResponse.model_validate(experiment)
+
+
+@app.get("/api/dashboard/client", response_model=ClientDashboardResponse)
+def get_client_dashboard(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> ClientDashboardResponse:
+    try:
+        return build_client_dashboard(db, current_user)
+    except DashboardAccessError as error:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=str(error),
+        ) from error
+
+
+@app.get("/api/dashboard/admin", response_model=AdminDashboardResponse)
+def get_admin_dashboard(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin),
+) -> AdminDashboardResponse:
+    del current_user
+    return build_admin_dashboard(db)
+
+
+@app.post("/api/experiments/compare", response_model=ExperimentComparisonResponse)
+def compare_user_experiments(
+    payload: ExperimentCompareRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> ExperimentComparisonResponse:
+    try:
+        return compare_completed_experiments(
+            db,
+            current_user,
+            payload.experiment_ids,
+        )
+    except LookupError as error:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(error),
+        ) from error
+    except ExperimentComparisonError as error:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(error),
+        ) from error
 
 
 @app.get("/api/experiments/{experiment_id}", response_model=ExperimentResponse)

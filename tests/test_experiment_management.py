@@ -381,3 +381,155 @@ def test_failed_experiment_run_is_recorded(
     assert body["status"] == "FAILED"
     assert body["error_message"] == "training failed"
     assert body["accuracy"] is None
+
+
+def test_client_dashboard_shows_assigned_factory_no_data_state(client: TestClient) -> None:
+    token = register_user(client, username="dashboard_client", factory_id=2)
+
+    response = client.get("/api/dashboard/client", headers=bearer(token))
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["role"] == "client"
+    assert body["factory_id"] == 2
+    assert body["factory_name"] == "factory_02"
+    assert body["total_samples"] == 0
+    assert body["recent_experiments"] == []
+    assert body["recent_model_performance"] == []
+
+
+def test_admin_dashboard_requires_admin_role(client: TestClient) -> None:
+    client_token = register_user(client, username="dashboard_regular")
+    admin_token = register_user(
+        client,
+        username="dashboard_admin",
+        role="admin",
+        factory_id=None,
+    )
+    create_experiment(client, client_token, algorithm="fedavg")
+
+    denied = client.get("/api/dashboard/admin", headers=bearer(client_token))
+    assert denied.status_code == 403
+
+    allowed = client.get("/api/dashboard/admin", headers=bearer(admin_token))
+    assert allowed.status_code == 200
+    body = allowed.json()
+    assert body["role"] == "admin"
+    assert body["registered_users"] == 2
+    assert body["experiment_count"] == 1
+    assert body["algorithm_usage"] == {"fedavg": 1}
+    assert body["status_counts"] == {"PENDING": 1}
+
+
+def test_compare_completed_experiments_returns_standard_metrics(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    token = register_user(client, username="compare_owner")
+    first = create_experiment(client, token, algorithm="fedavg", rounds=2)
+    second = create_experiment(
+        client,
+        token,
+        algorithm="failure_aware_v1",
+        distribution="moderate_non_iid",
+        rounds=3,
+    )
+
+    def fake_run_experiment(
+        algorithm: str,
+        distribution: str,
+        config: dict[str, object],
+    ) -> dict[str, object]:
+        rounds = int(config["rounds"])
+        return {
+            "algorithm": algorithm,
+            "distribution": distribution,
+            "accuracy": 0.8 + rounds / 100,
+            "precision": 0.7 + rounds / 100,
+            "recall": 0.6 + rounds / 100,
+            "f1": 0.65 + rounds / 100,
+            "communication_cost": rounds * 10,
+            "training_time": rounds / 2,
+            "rounds": rounds,
+            "convergence_history": [{"round": 1, "val_f1": 0.5 + rounds / 100}],
+        }
+
+    monkeypatch.setattr(
+        "iot_fl.backend.services.experiment_service.run_experiment",
+        fake_run_experiment,
+    )
+
+    assert client.post(f"/api/experiments/{first['id']}/run", headers=bearer(token)).status_code == 200
+    assert client.post(f"/api/experiments/{second['id']}/run", headers=bearer(token)).status_code == 200
+
+    response = client.post(
+        "/api/experiments/compare",
+        json={"experiment_ids": [first["id"], second["id"]]},
+        headers=bearer(token),
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert [row["id"] for row in body["experiments"]] == [first["id"], second["id"]]
+    assert body["experiments"][0]["algorithm"] == "fedavg"
+    assert body["experiments"][1]["distribution"] == "moderate_non_iid"
+    assert body["experiments"][0]["recall"] == pytest.approx(0.62)
+    assert body["experiments"][1]["communication_cost"] == 30
+    assert body["convergence"][0]["history"] == [{"round": 1, "val_f1": 0.52}]
+
+
+def test_compare_rejects_invalid_unowned_and_pending_experiments(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    owner_token = register_user(client, username="compare_private_owner")
+    other_token = register_user(client, username="compare_private_other", factory_id=2)
+    completed = create_experiment(client, owner_token)
+    pending = create_experiment(client, owner_token)
+
+    def fake_run_experiment(
+        algorithm: str,
+        distribution: str,
+        config: dict[str, object],
+    ) -> dict[str, object]:
+        del config
+        return {
+            "algorithm": algorithm,
+            "distribution": distribution,
+            "accuracy": 0.91,
+            "precision": 0.82,
+            "recall": 0.73,
+            "f1": 0.77,
+            "communication_cost": 10,
+            "training_time": 1.25,
+            "rounds": 5,
+            "convergence_history": [],
+        }
+
+    monkeypatch.setattr(
+        "iot_fl.backend.services.experiment_service.run_experiment",
+        fake_run_experiment,
+    )
+    assert client.post(f"/api/experiments/{completed['id']}/run", headers=bearer(owner_token)).status_code == 200
+
+    unowned = client.post(
+        "/api/experiments/compare",
+        json={"experiment_ids": [completed["id"]]},
+        headers=bearer(other_token),
+    )
+    assert unowned.status_code == 404
+
+    missing = client.post(
+        "/api/experiments/compare",
+        json={"experiment_ids": [999]},
+        headers=bearer(owner_token),
+    )
+    assert missing.status_code == 404
+
+    not_completed = client.post(
+        "/api/experiments/compare",
+        json={"experiment_ids": [pending["id"]]},
+        headers=bearer(owner_token),
+    )
+    assert not_completed.status_code == 400
+    assert "not completed" in not_completed.text

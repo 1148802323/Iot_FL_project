@@ -24,6 +24,10 @@
           <svg viewBox="0 0 24 24"><path d="M4 19V5"/><path d="M4 19h16"/><path d="M8 15l3-4 3 2 4-6"/></svg>
           Overview
         </a>
+        <a href="#dashboard">
+          <svg viewBox="0 0 24 24"><path d="M3 13h8V3H3z"/><path d="M13 21h8V11h-8z"/><path d="M13 9h8V3h-8z"/><path d="M3 21h8v-6H3z"/></svg>
+          Dashboard
+        </a>
         <a href="#results">
           <svg viewBox="0 0 24 24"><path d="M12 20V10"/><path d="M18 20V4"/><path d="M6 20v-6"/></svg>
           Results
@@ -31,6 +35,10 @@
         <a href="#experiments">
           <svg viewBox="0 0 24 24"><path d="M4 4h16v16H4z"/><path d="M8 9h8"/><path d="M8 13h5"/><path d="M8 17h3"/></svg>
           Experiments
+        </a>
+        <a href="#compare">
+          <svg viewBox="0 0 24 24"><path d="M4 19V5"/><path d="M4 19h16"/><path d="M8 16V9"/><path d="M12 16V6"/><path d="M16 16v-4"/></svg>
+          Compare
         </a>
         <a href="#predict">
           <svg viewBox="0 0 24 24"><path d="M4 14a8 8 0 0 1 16 0"/><path d="M12 14 16 8"/><path d="M5 19h14"/></svg>
@@ -131,6 +139,46 @@
           <h2>Distribution Comparison</h2>
           <p>Compare IID, Moderate Non-IID, and Highly Non-IID splits to show how client heterogeneity affects model metrics.</p>
         </article>
+      </section>
+
+      <section class="section" id="dashboard">
+        <div class="section-head">
+          <div>
+            <p class="eyebrow">Role-Based View</p>
+            <h2>Experiment Dashboard</h2>
+          </div>
+          <p>Client users see their assigned factory and own experiments. Admin users see platform-level users, factories, algorithms, and status counts.</p>
+        </div>
+
+        <div class="experiment-notice" id="dashboard-auth-notice" role="status">
+          Login to load the role-based dashboard.
+        </div>
+
+        <div id="dashboard-grid" class="dashboard-grid">
+          <article class="card">
+            <div class="empty-state">Dashboard data will appear after login.</div>
+          </article>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Algorithm</th>
+                <th>Distribution</th>
+                <th>Status</th>
+                <th>Recall</th>
+                <th>F1</th>
+                <th>Training Time</th>
+                <th>Created At</th>
+              </tr>
+            </thead>
+            <tbody id="dashboard-recent-table">
+              <tr><td colspan="8">Login to load recent experiments.</td></tr>
+            </tbody>
+          </table>
+        </div>
       </section>
 
       <section class="section" id="predict">
@@ -461,6 +509,84 @@
         </div>
       </section>
 
+      <section class="section" id="compare">
+        <div class="section-head">
+          <div>
+            <p class="eyebrow">Stored Results</p>
+            <h2>Algorithm Comparison</h2>
+          </div>
+          <p>Select completed experiments and compare metrics, run configuration, communication cost, training time, and convergence history.</p>
+        </div>
+
+        <div class="experiment-notice" id="comparison-notice" role="status">
+          Login and complete experiments before comparing results.
+        </div>
+
+        <div class="experiments-layout results">
+          <article class="card">
+            <div class="card-head">
+              <h3>Completed Experiments</h3>
+              <span id="comparison-count">0 available</span>
+            </div>
+            <div id="comparison-options" class="comparison-options">
+              <div class="empty-state">No completed experiments available.</div>
+            </div>
+            <div class="form-actions comparison-actions">
+              <button class="button primary form-button" id="comparison-button" type="button" disabled>
+                <svg viewBox="0 0 24 24"><path d="M4 19V5"/><path d="M4 19h16"/><path d="M8 16V9"/><path d="M12 16V6"/><path d="M16 16v-4"/></svg>
+                Compare Selected
+              </button>
+            </div>
+            <div class="experiment-message" id="comparison-message" role="status"></div>
+          </article>
+
+          <article class="card">
+            <div class="card-head">
+              <h3>Metric Comparison</h3>
+              <span>recall / f1 / cost / time</span>
+            </div>
+            <div id="comparison-metrics-chart" class="bar-chart">
+              <div class="empty-state">Select completed experiments to compare.</div>
+            </div>
+          </article>
+        </div>
+
+        <article class="card">
+          <div class="card-head">
+            <h3>Convergence Comparison</h3>
+            <span>stored round history</span>
+          </div>
+          <div id="comparison-convergence-chart" class="line-chart experiment-chart">
+            <div class="empty-state">No convergence history selected.</div>
+          </div>
+        </article>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Algorithm</th>
+                <th>Distribution</th>
+                <th>Rounds</th>
+                <th>Local Epochs</th>
+                <th>Learning Rate</th>
+                <th>Accuracy</th>
+                <th>Precision</th>
+                <th>Recall</th>
+                <th>F1</th>
+                <th>Communication</th>
+                <th>Training Time</th>
+                <th>Created At</th>
+              </tr>
+            </thead>
+            <tbody id="comparison-table">
+              <tr><td colspan="13">Select completed experiments to compare.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
       <section class="section" id="factories">
         <div class="section-head">
           <div>
@@ -651,6 +777,6 @@
     </main>
   </div>
 
-  <script src="./app.js?v=english-20260716"></script>
+  <script src="./app.js?v=task4-dashboard-compare"></script>
 </body>
 </html>

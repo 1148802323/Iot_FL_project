@@ -32,6 +32,8 @@ let currentUser = null;
 let algorithmOptions = [];
 let experiments = [];
 let uploadedDatasets = [];
+let dashboardData = null;
+let comparisonResult = null;
 let selectedExperimentId = null;
 let experimentBusy = false;
 
@@ -186,6 +188,8 @@ function clearSession() {
   document.querySelector("#auth-status").textContent = "Not connected";
   document.querySelector("#session-box").innerHTML = `<div class="empty-state">Login or register to view the current user.</div>`;
   renderExperimentsLoggedOut();
+  renderDashboardLoggedOut();
+  renderCompareLoggedOut();
 }
 
 function renderSession(user) {
@@ -309,6 +313,8 @@ function bindAuthControls() {
       .catch(() => clearSession());
   } else {
     renderExperimentsLoggedOut();
+    renderDashboardLoggedOut();
+    renderCompareLoggedOut();
   }
 }
 
@@ -364,6 +370,38 @@ function setDatasetMessage(message, type = "") {
   target.className = `experiment-message ${type}`.trim();
 }
 
+function setComparisonMessage(message, type = "") {
+  const target = document.querySelector("#comparison-message");
+  if (!target) {
+    return;
+  }
+  target.textContent = message;
+  target.className = `experiment-message ${type}`.trim();
+}
+
+function renderExperimentRows(targetId, rows, emptyText) {
+  const body = document.querySelector(targetId);
+  if (!body) {
+    return;
+  }
+  if (!rows.length) {
+    body.innerHTML = `<tr><td colspan="8">${emptyText}</td></tr>`;
+    return;
+  }
+  body.innerHTML = rows.map((experiment) => `
+    <tr>
+      <td>#${experiment.id}</td>
+      <td>${labelForAlgorithm(experiment.algorithm)}</td>
+      <td>${distributionLabel(experiment.distribution)}</td>
+      <td><span class="${statusClass(experiment.status)}">${experiment.status}</span></td>
+      <td>${formatMetric(experiment.recall)}</td>
+      <td><strong>${formatMetric(experiment.f1_score)}</strong></td>
+      <td>${formatTime(experiment.training_time)}</td>
+      <td>${formatDateTime(experiment.created_at)}</td>
+    </tr>
+  `).join("");
+}
+
 function setExperimentBusy(isBusy) {
   experimentBusy = isBusy;
   const startButton = document.querySelector("#start-experiment-button");
@@ -384,6 +422,8 @@ function renderExperimentsLoggedOut() {
   algorithmOptions = [];
   experiments = [];
   uploadedDatasets = [];
+  dashboardData = null;
+  comparisonResult = null;
   selectedExperimentId = null;
   const notice = document.querySelector("#experiment-auth-notice");
   const algorithmSelect = document.querySelector("#experiment-algorithm");
@@ -432,6 +472,149 @@ function renderExperimentsLoggedOut() {
   setExperimentMessage("");
   setDatasetMessage("");
   setExperimentBusy(false);
+}
+
+function renderDashboardLoggedOut() {
+  dashboardData = null;
+  const notice = document.querySelector("#dashboard-auth-notice");
+  const grid = document.querySelector("#dashboard-grid");
+  if (notice) {
+    notice.textContent = "Login to load the role-based dashboard.";
+    notice.className = "experiment-notice";
+  }
+  if (grid) {
+    grid.innerHTML = `<article class="card"><div class="empty-state">Dashboard data will appear after login.</div></article>`;
+  }
+  renderExperimentRows("#dashboard-recent-table", [], "Login to load recent experiments.");
+}
+
+function metricCard(label, value, detail = "") {
+  return `
+    <article class="dashboard-card">
+      <span>${label}</span>
+      <strong>${value}</strong>
+      ${detail ? `<small>${detail}</small>` : ""}
+    </article>
+  `;
+}
+
+function renderClientDashboard(data) {
+  const grid = document.querySelector("#dashboard-grid");
+  if (!grid) {
+    return;
+  }
+  const distributions = data.distribution_types.length
+    ? data.distribution_types.map(distributionLabel).join(", ")
+    : "No factory clients";
+  const performance = data.recent_model_performance.length
+    ? data.recent_model_performance.map((item) => `
+        <div class="dashboard-list-row">
+          <strong>#${item.experiment_id} ${labelForAlgorithm(item.algorithm)}</strong>
+          <span>${distributionLabel(item.distribution)} / Recall ${formatMetric(item.recall)} / F1 ${formatMetric(item.f1_score)} / ${formatTime(item.training_time)}</span>
+        </div>
+      `).join("")
+    : `<div class="empty-state">No completed experiment metrics yet.</div>`;
+
+  grid.innerHTML = `
+    ${metricCard("Factory ID", `#${data.factory_id}`, data.factory_name)}
+    ${metricCard("Samples", Number(data.total_samples).toLocaleString("en-US"), `${data.failure_samples} failure samples`)}
+    ${metricCard("Failure Rate", `${(Number(data.failure_rate) * 100).toFixed(2)}%`, data.dominant_failure_mode ? `dominant ${data.dominant_failure_mode}` : "no dominant failure mode")}
+    ${metricCard("Distribution", distributions, `${data.clients.length} factory client records`)}
+    <article class="card dashboard-wide">
+      <div class="card-head">
+        <h3>Factory Clients</h3>
+        <span>samples / failure / mode</span>
+      </div>
+      <div class="dashboard-list">
+        ${data.clients.length ? data.clients.map((client) => `
+          <div class="dashboard-list-row">
+            <strong>${client.name}</strong>
+            <span>${distributionLabel(client.distribution_type)} / ${client.total_rows.toLocaleString("en-US")} samples / ${(client.failure_ratio * 100).toFixed(2)}% failure</span>
+          </div>
+        `).join("") : `<div class="empty-state">No factory client records found.</div>`}
+      </div>
+    </article>
+    <article class="card dashboard-wide">
+      <div class="card-head">
+        <h3>Recent Model Performance</h3>
+        <span>completed runs only</span>
+      </div>
+      <div class="dashboard-list">${performance}</div>
+    </article>
+  `;
+  renderExperimentRows("#dashboard-recent-table", data.recent_experiments, "No recent experiments yet.");
+}
+
+function renderAdminDashboard(data) {
+  const grid = document.querySelector("#dashboard-grid");
+  if (!grid) {
+    return;
+  }
+  const usageRows = Object.entries(data.algorithm_usage).length
+    ? Object.entries(data.algorithm_usage).map(([algorithm, count]) => `
+      <div class="dashboard-list-row">
+        <strong>${labelForAlgorithm(algorithm)}</strong>
+        <span>${count} experiment${count === 1 ? "" : "s"}</span>
+      </div>
+    `).join("")
+    : `<div class="empty-state">No algorithm usage yet.</div>`;
+  const statusRows = Object.entries(data.status_counts).length
+    ? Object.entries(data.status_counts).map(([status, count]) => `
+      <div class="dashboard-list-row">
+        <strong><span class="${statusClass(status)}">${status}</span></strong>
+        <span>${count} experiment${count === 1 ? "" : "s"}</span>
+      </div>
+    `).join("")
+    : `<div class="empty-state">No experiments yet.</div>`;
+
+  grid.innerHTML = `
+    ${metricCard("Registered Users", data.registered_users)}
+    ${metricCard("Factory Clients", data.factory_clients)}
+    ${metricCard("Factory IDs", data.factory_ids.length ? data.factory_ids.map((id) => `#${id}`).join(", ") : "-")}
+    ${metricCard("Experiments", data.experiment_count)}
+    <article class="card dashboard-wide">
+      <div class="card-head">
+        <h3>Algorithm Usage</h3>
+        <span>stored experiments</span>
+      </div>
+      <div class="dashboard-list">${usageRows}</div>
+    </article>
+    <article class="card dashboard-wide">
+      <div class="card-head">
+        <h3>Experiment Status</h3>
+        <span>all users</span>
+      </div>
+      <div class="dashboard-list">${statusRows}</div>
+    </article>
+  `;
+  renderExperimentRows("#dashboard-recent-table", data.recent_experiments, "No recent experiments yet.");
+}
+
+async function loadDashboard() {
+  if (!accessToken) {
+    renderDashboardLoggedOut();
+    return;
+  }
+  const notice = document.querySelector("#dashboard-auth-notice");
+  if (notice) {
+    notice.textContent = "Loading dashboard...";
+    notice.className = "experiment-notice loading";
+  }
+  const endpoint = currentUser?.role === "admin"
+    ? "/api/dashboard/admin"
+    : "/api/dashboard/client";
+  dashboardData = await apiRequest(endpoint);
+  if (dashboardData.role === "admin") {
+    renderAdminDashboard(dashboardData);
+  } else {
+    renderClientDashboard(dashboardData);
+  }
+  if (notice) {
+    notice.textContent = currentUser
+      ? `${currentUser.role} dashboard loaded for ${currentUser.username}.`
+      : "Dashboard loaded.";
+    notice.className = "experiment-notice success";
+  }
 }
 
 function populateAlgorithmSelect() {
@@ -674,6 +857,276 @@ function renderExperimentConvergenceChart(history) {
   `;
 }
 
+function renderCompareLoggedOut() {
+  comparisonResult = null;
+  const notice = document.querySelector("#comparison-notice");
+  const options = document.querySelector("#comparison-options");
+  const count = document.querySelector("#comparison-count");
+  const button = document.querySelector("#comparison-button");
+  const metricsChart = document.querySelector("#comparison-metrics-chart");
+  const convergenceChart = document.querySelector("#comparison-convergence-chart");
+  const table = document.querySelector("#comparison-table");
+  if (notice) {
+    notice.textContent = "Login and complete experiments before comparing results.";
+    notice.className = "experiment-notice";
+  }
+  if (options) {
+    options.innerHTML = `<div class="empty-state">No completed experiments available.</div>`;
+  }
+  if (count) {
+    count.textContent = "0 available";
+  }
+  if (button) {
+    button.disabled = true;
+  }
+  if (metricsChart) {
+    metricsChart.innerHTML = `<div class="empty-state">Select completed experiments to compare.</div>`;
+  }
+  if (convergenceChart) {
+    convergenceChart.innerHTML = `<div class="empty-state">No convergence history selected.</div>`;
+  }
+  if (table) {
+    table.innerHTML = `<tr><td colspan="13">Select completed experiments to compare.</td></tr>`;
+  }
+  setComparisonMessage("");
+}
+
+function renderCompareOptions() {
+  const options = document.querySelector("#comparison-options");
+  const count = document.querySelector("#comparison-count");
+  const button = document.querySelector("#comparison-button");
+  const notice = document.querySelector("#comparison-notice");
+  if (!options || !count || !button) {
+    return;
+  }
+  const completed = experiments.filter((experiment) => experiment.status === "COMPLETED");
+  count.textContent = `${completed.length} available`;
+  button.disabled = !accessToken || !completed.length;
+  if (notice && accessToken) {
+    notice.textContent = completed.length
+      ? "Choose completed experiments, then compare stored backend results."
+      : "No completed experiments yet. Run an experiment to enable comparison.";
+    notice.className = completed.length ? "experiment-notice success" : "experiment-notice";
+  }
+  if (!completed.length) {
+    options.innerHTML = `<div class="empty-state">No completed experiments available.</div>`;
+    return;
+  }
+  options.innerHTML = completed.map((experiment, index) => `
+    <label class="comparison-option">
+      <input type="checkbox" value="${experiment.id}" ${index < 3 ? "checked" : ""}>
+      <span>
+        <strong>#${experiment.id} ${labelForAlgorithm(experiment.algorithm)}</strong>
+        <small>${distributionLabel(experiment.distribution)} / Recall ${formatMetric(experiment.recall)} / F1 ${formatMetric(experiment.f1_score)} / ${formatTime(experiment.training_time)}</small>
+      </span>
+    </label>
+  `).join("");
+}
+
+function selectedComparisonIds() {
+  return [...document.querySelectorAll("#comparison-options input:checked")]
+    .map((input) => Number(input.value))
+    .filter((id) => Number.isFinite(id));
+}
+
+async function compareSelectedExperiments() {
+  if (!accessToken) {
+    setComparisonMessage("Please login before comparing experiments.", "error");
+    return;
+  }
+  const experimentIds = selectedComparisonIds();
+  if (!experimentIds.length) {
+    setComparisonMessage("Select at least one completed experiment.", "error");
+    return;
+  }
+  setComparisonMessage("Loading comparison...", "loading");
+  try {
+    comparisonResult = await apiRequest("/api/experiments/compare", {
+      method: "POST",
+      body: JSON.stringify({ experiment_ids: experimentIds })
+    });
+    renderComparisonResult(comparisonResult);
+    setComparisonMessage("Comparison loaded.", "success");
+  } catch (error) {
+    setComparisonMessage(error.message, "error");
+  }
+}
+
+function renderComparisonResult(result) {
+  renderComparisonTable(result.experiments);
+  renderComparisonMetricChart(result.experiments);
+  renderComparisonConvergenceChart(result.convergence);
+}
+
+function renderComparisonTable(rows) {
+  const body = document.querySelector("#comparison-table");
+  if (!body) {
+    return;
+  }
+  if (!rows.length) {
+    body.innerHTML = `<tr><td colspan="13">Select completed experiments to compare.</td></tr>`;
+    return;
+  }
+  body.innerHTML = rows.map((row) => `
+    <tr>
+      <td>#${row.id}</td>
+      <td>${labelForAlgorithm(row.algorithm)}</td>
+      <td>${distributionLabel(row.distribution)}</td>
+      <td>${row.rounds}</td>
+      <td>${row.local_epochs}</td>
+      <td>${row.learning_rate}</td>
+      <td>${formatMetric(row.accuracy)}</td>
+      <td>${formatMetric(row.precision)}</td>
+      <td>${formatMetric(row.recall)}</td>
+      <td><strong>${formatMetric(row.f1_score)}</strong></td>
+      <td>${formatMetric(row.communication_cost, 0)}</td>
+      <td>${formatTime(row.training_time)}</td>
+      <td>${formatDateTime(row.created_at)}</td>
+    </tr>
+  `).join("");
+}
+
+function renderComparisonMetricChart(rows) {
+  const target = document.querySelector("#comparison-metrics-chart");
+  if (!target) {
+    return;
+  }
+  if (!rows.length) {
+    target.innerHTML = `<div class="empty-state">Select completed experiments to compare.</div>`;
+    return;
+  }
+  const width = 760;
+  const height = 300;
+  const padding = { left: 54, right: 24, top: 24, bottom: 76 };
+  const chartW = width - padding.left - padding.right;
+  const chartH = height - padding.top - padding.bottom;
+  const groupW = chartW / rows.length;
+  const maxCost = Math.max(...rows.map((row) => Number(row.communication_cost) || 0), 1);
+  const metrics = [
+    ["recall", colors.green, "Recall", 1],
+    ["f1_score", colors.amber, "F1", 1],
+    ["communication_cost", colors.violet, "Comm", maxCost]
+  ];
+  const bars = rows.map((row, rowIndex) => {
+    const x0 = padding.left + rowIndex * groupW;
+    return metrics.map(([key, color, label, max], metricIndex) => {
+      const barW = Math.max(12, groupW / 5.2);
+      const gap = 5;
+      const value = Number(row[key]) || 0;
+      const ratio = Math.min(value / Number(max), 1);
+      const barH = ratio * chartH;
+      const x = x0 + groupW / 2 - (barW * 1.5 + gap) + metricIndex * (barW + gap);
+      const y = padding.top + chartH - barH;
+      const textValue = key === "communication_cost" ? value.toFixed(0) : value.toFixed(2);
+      return `
+        <rect x="${x}" y="${y}" width="${barW}" height="${barH}" rx="4" fill="${color}"></rect>
+        <text class="chart-label" x="${x + barW / 2}" y="${Math.max(14, y - 6)}" text-anchor="middle">${textValue}</text>
+      `;
+    }).join("");
+  }).join("");
+  const labels = rows.map((row, index) => {
+    const x = padding.left + index * groupW + groupW / 2;
+    return `<text class="chart-label" x="${x}" y="${height - 42}" text-anchor="middle">#${row.id}</text>`;
+  }).join("");
+  const grid = [0, 0.25, 0.5, 0.75, 1].map((value) => {
+    const y = padding.top + chartH - value * chartH;
+    return `
+      <line x1="${padding.left}" y1="${y}" x2="${width - padding.right}" y2="${y}" stroke="${colors.line}"></line>
+      <text class="axis-label" x="12" y="${y + 4}">${(value * 100).toFixed(0)}%</text>
+    `;
+  }).join("");
+  const legend = metrics.map(([, color, label], index) => `
+    <g transform="translate(${padding.left + index * 112}, ${height - 16})">
+      <rect width="10" height="10" rx="2" fill="${color}"></rect>
+      <text class="axis-label" x="16" y="10">${label}</text>
+    </g>
+  `).join("");
+
+  target.innerHTML = `
+    <svg class="chart-svg" viewBox="0 0 ${width} ${height}" role="img" aria-label="Comparison chart">
+      ${grid}
+      ${bars}
+      ${labels}
+      ${legend}
+    </svg>
+  `;
+}
+
+function renderComparisonConvergenceChart(series) {
+  const target = document.querySelector("#comparison-convergence-chart");
+  if (!target) {
+    return;
+  }
+  const palette = [colors.teal, colors.blue, colors.green, colors.amber, colors.violet, colors.red];
+  const prepared = series.map((item, index) => {
+    const points = item.history
+      .map((row) => ({ row, metric: metricFromHistory(row) }))
+      .filter((point) => point.metric && Number.isFinite(point.metric.value))
+      .map((point) => ({
+        round: Number(point.row.round),
+        value: point.metric.value,
+        label: point.metric.label
+      }));
+    return {
+      ...item,
+      color: palette[index % palette.length],
+      points
+    };
+  }).filter((item) => item.points.length);
+
+  if (!prepared.length) {
+    target.innerHTML = `<div class="empty-state">Selected experiments do not include plottable convergence history.</div>`;
+    return;
+  }
+
+  const width = 900;
+  const height = 320;
+  const padding = { left: 58, right: 28, top: 24, bottom: 66 };
+  const chartW = width - padding.left - padding.right;
+  const chartH = height - padding.top - padding.bottom;
+  const rounds = prepared.flatMap((item) => item.points.map((point) => point.round));
+  const values = prepared.flatMap((item) => item.points.map((point) => point.value));
+  const minRound = Math.min(...rounds);
+  const maxRound = Math.max(...rounds);
+  const minValue = Math.min(...values, 0);
+  const maxValue = Math.max(...values, 0.01) * 1.08;
+  const spanRound = Math.max(maxRound - minRound, 1);
+  const spanValue = Math.max(maxValue - minValue, 0.001);
+  const grid = [0, 0.25, 0.5, 0.75, 1].map((ratio) => {
+    const value = minValue + ratio * spanValue;
+    const y = padding.top + chartH - ratio * chartH;
+    return `
+      <line x1="${padding.left}" y1="${y}" x2="${width - padding.right}" y2="${y}" stroke="${colors.line}"></line>
+      <text class="axis-label" x="12" y="${y + 4}">${value.toFixed(2)}</text>
+    `;
+  }).join("");
+  const lines = prepared.map((item) => {
+    const polyline = item.points.map((point) => {
+      const x = padding.left + ((point.round - minRound) / spanRound) * chartW;
+      const y = padding.top + chartH - ((point.value - minValue) / spanValue) * chartH;
+      return `${x.toFixed(2)},${y.toFixed(2)}`;
+    }).join(" ");
+    return `<polyline points="${polyline}" fill="none" stroke="${item.color}" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"></polyline>`;
+  }).join("");
+  const legend = prepared.map((item, index) => `
+    <g transform="translate(${padding.left + (index % 4) * 190}, ${height - 42 + Math.floor(index / 4) * 18})">
+      <line x1="0" y1="0" x2="22" y2="0" stroke="${item.color}" stroke-width="3"></line>
+      <text class="axis-label" x="30" y="4">#${item.experiment_id} ${labelForAlgorithm(item.algorithm)}</text>
+    </g>
+  `).join("");
+
+  target.innerHTML = `
+    <svg class="chart-svg" viewBox="0 0 ${width} ${height}" role="img" aria-label="Comparison convergence chart">
+      ${grid}
+      <line x1="${padding.left}" y1="${padding.top + chartH}" x2="${width - padding.right}" y2="${padding.top + chartH}" stroke="${colors.line}"></line>
+      ${lines}
+      <text class="axis-label" x="${padding.left}" y="${height - 16}">Round ${minRound}</text>
+      <text class="axis-label" x="${width - padding.right}" y="${height - 16}" text-anchor="end">Round ${maxRound}</text>
+      ${legend}
+    </svg>
+  `;
+}
+
 async function loadAlgorithms() {
   algorithmOptions = await apiRequest("/api/algorithms");
   populateAlgorithmSelect();
@@ -686,6 +1139,7 @@ async function loadAlgorithms() {
 async function loadExperimentHistory() {
   experiments = await apiRequest("/api/experiments");
   renderExperimentHistory();
+  renderCompareOptions();
   if (experiments.length && !selectedExperimentId) {
     await selectExperiment(experiments[0].id);
   } else if (!experiments.length) {
@@ -715,6 +1169,7 @@ async function loadExperimentWorkspace() {
     await loadAlgorithms();
     await loadDatasets();
     await loadExperimentHistory();
+    await loadDashboard();
     if (notice) {
       notice.textContent = currentUser
         ? `Connected as ${currentUser.username}. Experiments are stored under this account.`
@@ -816,12 +1271,14 @@ async function startExperiment() {
     experiments = [executed, ...experiments.filter((experiment) => experiment.id !== executed.id)];
     renderExperimentStatus(executed);
     renderExperimentHistory();
+    renderCompareOptions();
 
     const result = await apiRequest(`/api/experiments/${created.id}/results`);
     renderExperimentStatus(result);
     renderExperimentMetrics(result);
     renderExperimentConvergenceChart(result.convergence_history);
     await loadExperimentHistory();
+    await loadDashboard();
 
     if (result.status === "COMPLETED") {
       setExperimentMessage("Experiment completed.", "success");
@@ -898,6 +1355,14 @@ function bindExperimentControls() {
     event.preventDefault();
     uploadDataset();
   });
+}
+
+function bindComparisonControls() {
+  const compareButton = document.querySelector("#comparison-button");
+  if (!compareButton) {
+    return;
+  }
+  compareButton.addEventListener("click", compareSelectedExperiments);
 }
 
 function buildStandardization(rows) {
@@ -1315,6 +1780,7 @@ function bindControls() {
 
 async function init() {
   bindExperimentControls();
+  bindComparisonControls();
   bindAuthControls();
   try {
     const [eda, centralized, fedavg, history, factories, centralizedModel, fedavgModels, standardizationRows] = await Promise.all([

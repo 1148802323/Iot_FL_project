@@ -168,6 +168,77 @@ class ExperimentResult(ExperimentResponse):
     convergence_history: list[dict[str, object]] = Field(default_factory=list)
 
 
+class RecentModelPerformance(BaseModel):
+    experiment_id: int
+    algorithm: str
+    distribution: str
+    accuracy: float | None = None
+    precision: float | None = None
+    recall: float | None = None
+    f1_score: float | None = None
+    communication_cost: float | None = None
+    training_time: float | None = None
+    finished_at: datetime | None = None
+
+
+class ClientDashboardResponse(BaseModel):
+    role: Literal["client"] = "client"
+    factory_id: int
+    factory_name: str
+    total_samples: int
+    failure_samples: int
+    failure_rate: float
+    distribution_types: list[str]
+    dominant_failure_mode: str | None = None
+    failure_modes: dict[str, int] = Field(default_factory=dict)
+    clients: list[ClientStatistics] = Field(default_factory=list)
+    recent_experiments: list[ExperimentResponse] = Field(default_factory=list)
+    recent_model_performance: list[RecentModelPerformance] = Field(default_factory=list)
+
+
+class AdminDashboardResponse(BaseModel):
+    role: Literal["admin"] = "admin"
+    registered_users: int
+    factory_clients: int
+    factory_ids: list[int]
+    experiment_count: int
+    algorithm_usage: dict[str, int] = Field(default_factory=dict)
+    status_counts: dict[str, int] = Field(default_factory=dict)
+    recent_experiments: list[ExperimentResponse] = Field(default_factory=list)
+
+
+class ExperimentCompareRequest(BaseModel):
+    experiment_ids: list[int] = Field(min_length=1, max_length=12)
+
+
+class ExperimentComparisonRow(BaseModel):
+    id: int
+    algorithm: str
+    distribution: str
+    rounds: int
+    local_epochs: int
+    learning_rate: float
+    accuracy: float | None = None
+    precision: float | None = None
+    recall: float | None = None
+    f1_score: float | None = None
+    communication_cost: float | None = None
+    training_time: float | None = None
+    created_at: datetime
+
+
+class ExperimentConvergenceSeries(BaseModel):
+    experiment_id: int
+    algorithm: str
+    distribution: str
+    history: list[dict[str, object]] = Field(default_factory=list)
+
+
+class ExperimentComparisonResponse(BaseModel):
+    experiments: list[ExperimentComparisonRow]
+    convergence: list[ExperimentConvergenceSeries] = Field(default_factory=list)
+
+
 class UploadedDatasetRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

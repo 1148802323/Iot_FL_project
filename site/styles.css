@@ -1118,6 +1118,121 @@ pre {
   color: var(--red);
 }
 
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.dashboard-card {
+  min-height: 116px;
+  display: grid;
+  align-content: center;
+  gap: 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: 0 8px 24px rgba(26, 41, 46, 0.045);
+  padding: 16px;
+}
+
+.dashboard-card span,
+.dashboard-card small {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.dashboard-card strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: 23px;
+  line-height: 1.15;
+}
+
+.dashboard-wide {
+  grid-column: span 2;
+}
+
+.dashboard-list {
+  padding: 16px;
+  display: grid;
+  gap: 10px;
+}
+
+.dashboard-list-row {
+  min-height: 58px;
+  display: grid;
+  align-content: center;
+  gap: 4px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfcfc;
+  padding: 10px 12px;
+}
+
+.dashboard-list-row strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: 13px;
+}
+
+.dashboard-list-row span,
+.dashboard-list-row small {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.comparison-options {
+  padding: 16px;
+  display: grid;
+  gap: 10px;
+}
+
+.comparison-option {
+  min-height: 64px;
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfcfc;
+  padding: 10px 12px;
+  cursor: pointer;
+}
+
+.comparison-option:hover {
+  background: #f4f8fa;
+}
+
+.comparison-option input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--teal);
+}
+
+.comparison-option strong,
+.comparison-option small {
+  display: block;
+}
+
+.comparison-option strong {
+  margin-bottom: 4px;
+  font-size: 13px;
+}
+
+.comparison-option small {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.comparison-actions {
+  padding: 0 16px 16px;
+}
+
 @media (max-width: 1120px) {
   .hero,
   .results-layout,
@@ -1128,6 +1243,10 @@ pre {
   .experiments-layout.results,
   .experiments-layout.dataset-layout {
     grid-template-columns: 1fr;
+  }
+
+  .dashboard-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .summary-grid,
@@ -1201,9 +1320,14 @@ pre {
   .output-grid,
   .experiment-status-grid,
   .experiment-metrics-grid,
+  .dashboard-grid,
   .code-grid,
   .figure-grid {
     grid-template-columns: 1fr;
+  }
+
+  .dashboard-wide {
+    grid-column: auto;
   }
 
   .hero-panel {
