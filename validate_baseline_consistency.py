@@ -10,6 +10,26 @@ import numpy as np
 import pandas as pd
 from flwr.server.strategy.aggregate import aggregate
 
+from flwr.common import (
+    FitRes,
+    Status,
+    Code,
+    ndarrays_to_parameters,
+    parameters_to_ndarrays,
+)
+
+from iot_fl.flower_framework.strategies.failure_aware_v1 import (
+    FailureAwareV1Strategy,
+)
+
+from iot_fl.flower_framework.strategies.failure_aware_v2 import (
+    FailureAwareV2Strategy,
+)
+
+from iot_fl.flower_framework.strategies.failure_aware_v4 import (
+    FailureAwareV4Strategy,
+)
+
 PROJECT_ROOT = Path(__file__).resolve().parent
 SRC_ROOT = PROJECT_ROOT / "src"
 
@@ -173,6 +193,7 @@ def main() -> None:
 
     baseline_updates: list[tuple[np.ndarray, int]] = []
     flower_updates: list[tuple[list[np.ndarray], int]] = []
+    failure_aware_results = []
     client_results: list[dict[str, Any]] = []
 
     fit_config = {
@@ -208,6 +229,26 @@ def main() -> None:
                 parameters=[initial_parameters.copy()],
                 config=fit_config,
             )
+        )
+
+        fit_res = FitRes(
+            status=Status(
+                code=Code.OK,
+                message="OK",
+            ),
+            parameters=ndarrays_to_parameters(
+                flower_parameter_list
+            ),
+            num_examples=flower_examples,
+            metrics={
+                "failure_rate": float(
+                    flower_metrics["failure_rate"]
+                ),
+            },
+        )
+
+        failure_aware_results.append(
+            (None, fit_res)
         )
 
         flower_parameters = np.asarray(
@@ -278,6 +319,131 @@ def main() -> None:
         flower_global_parameters,
     )
 
+    failure_aware_strategy = FailureAwareV1Strategy(
+        alpha=0.0,
+    )
+
+    failure_aware_parameters, _ = (
+        failure_aware_strategy.aggregate_fit(
+            server_round=1,
+            results=failure_aware_results,
+            failures=[],
+        )
+    )
+
+    if failure_aware_parameters is None:
+        raise ValueError(
+            "FailureAwareV1Strategy returned no parameters"
+        )
+
+    failure_aware_arrays = parameters_to_ndarrays(
+        failure_aware_parameters
+    )
+
+    if len(failure_aware_arrays) != 1:
+        raise ValueError(
+            "Expected one Failure-Aware parameter array"
+        )
+
+    failure_aware_global_parameters = np.asarray(
+        failure_aware_arrays[0],
+        dtype=float,
+    )
+
+    failure_aware_difference = max_abs_difference(
+        flower_global_parameters,
+        failure_aware_global_parameters,
+    )
+
+    failure_aware_consistency_pass = (
+        failure_aware_difference
+        <= args.parameter_tolerance
+    )
+
+    failure_aware_v2_strategy = FailureAwareV2Strategy(
+        alpha=0.0,
+    )
+
+    failure_aware_v2_parameters, _ = (
+        failure_aware_v2_strategy.aggregate_fit(
+            server_round=1,
+            results=failure_aware_results,
+            failures=[],
+        )
+    )
+
+    if failure_aware_v2_parameters is None:
+        raise ValueError(
+            "FailureAwareV2Strategy returned no parameters"
+        )
+
+    failure_aware_v2_arrays = parameters_to_ndarrays(
+        failure_aware_v2_parameters
+    )
+
+    if len(failure_aware_v2_arrays) != 1:
+        raise ValueError(
+            "Expected one Failure-Aware V2 parameter array"
+        )
+
+    failure_aware_v2_global_parameters = np.asarray(
+        failure_aware_v2_arrays[0],
+        dtype=float,
+    )
+
+    failure_aware_v2_difference = max_abs_difference(
+        flower_global_parameters,
+        failure_aware_v2_global_parameters,
+    )
+
+    failure_aware_v2_consistency_pass = (
+        failure_aware_v2_difference
+        <= args.parameter_tolerance
+    )
+
+    failure_aware_v4_strategy = FailureAwareV4Strategy(
+        schedule="fixed",
+        lambda_max=0.0,
+        total_rounds=1,
+    )
+
+    failure_aware_v4_parameters, _ = (
+        failure_aware_v4_strategy.aggregate_fit(
+            server_round=1,
+            results=failure_aware_results,
+            failures=[],
+        )
+    )
+
+    if failure_aware_v4_parameters is None:
+        raise ValueError(
+            "FailureAwareV4Strategy returned no parameters"
+        )
+
+    failure_aware_v4_arrays = parameters_to_ndarrays(
+        failure_aware_v4_parameters
+    )
+
+    if len(failure_aware_v4_arrays) != 1:
+        raise ValueError(
+            "Expected one Failure-Aware V4 parameter array"
+        )
+
+    failure_aware_v4_global_parameters = np.asarray(
+        failure_aware_v4_arrays[0],
+        dtype=float,
+    )
+
+    failure_aware_v4_difference = max_abs_difference(
+        flower_global_parameters,
+        failure_aware_v4_global_parameters,
+    )
+
+    failure_aware_v4_consistency_pass = (
+        failure_aware_v4_difference
+        <= args.parameter_tolerance
+    )
+
     baseline_validation = evaluate_parameters(
         x_val,
         y_val,
@@ -311,14 +477,23 @@ def main() -> None:
         for difference in metric_differences.values()
     )
     overall_pass = (
-        clients_pass
-        and aggregation_pass
-        and metrics_pass
+            clients_pass
+            and aggregation_pass
+            and metrics_pass
+            and failure_aware_consistency_pass
+            and failure_aware_v2_consistency_pass
+            and failure_aware_v4_consistency_pass
     )
 
     report = {
         "validation": (
             "Baseline Consistency Validation"
+        ),
+        "failure_aware_v2_alpha_zero_max_abs_difference": (
+            failure_aware_v2_difference
+        ),
+        "failure_aware_v4_lambda_zero_max_abs_difference": (
+            failure_aware_v4_difference
         ),
         "strategy": args.strategy,
         "seed": args.seed,
@@ -336,10 +511,22 @@ def main() -> None:
             "single_client_training": clients_pass,
             "fedavg_aggregation": aggregation_pass,
             "validation_metrics": metrics_pass,
+            "failure_aware_v1_alpha_zero": (
+                failure_aware_consistency_pass
+            ),
+            "failure_aware_v2_alpha_zero": (
+                failure_aware_v2_consistency_pass
+            ),
+            "failure_aware_v4_lambda_zero": (
+                failure_aware_v4_consistency_pass
+            ),
             "overall": overall_pass,
         },
         "global_parameter_max_abs_difference": (
             global_parameter_difference
+        ),
+        "failure_aware_v1_alpha_zero_max_abs_difference": (
+            failure_aware_difference
         ),
         "baseline_validation": baseline_validation,
         "flower_validation": flower_validation,
@@ -408,6 +595,35 @@ def main() -> None:
     print(
         "Validation metrics: "
         f"{'PASS' if metrics_pass else 'FAIL'}"
+    )
+    print(
+        "FailureAware V1 alpha=0 consistency: "
+        f"{'PASS' if failure_aware_consistency_pass else 'FAIL'}"
+    )
+
+    print(
+        "FedAvg vs V1(alpha=0) maximum parameter difference: "
+        f"{failure_aware_difference:.16e}"
+    )
+
+    print(
+        "FailureAware V2 alpha=0 consistency: "
+        f"{'PASS' if failure_aware_v2_consistency_pass else 'FAIL'}"
+    )
+
+    print(
+        "FedAvg vs V2(alpha=0) maximum parameter difference: "
+        f"{failure_aware_v2_difference:.16e}"
+    )
+
+    print(
+        "FailureAware V4 lambda=0 consistency: "
+        f"{'PASS' if failure_aware_v4_consistency_pass else 'FAIL'}"
+    )
+
+    print(
+        "FedAvg vs V4(lambda=0) maximum parameter difference: "
+        f"{failure_aware_v4_difference:.16e}"
     )
     print(
         "OVERALL RESULT: "

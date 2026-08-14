@@ -9,47 +9,8 @@ from flwr.common import NDArrays, Scalar
 from iot_fl.metrics import classification_metrics
 from iot_fl.model import local_train, predict_proba, sample_weights, weighted_log_loss
 
-import pandas as pd
 
-# from iot_fl.config import ID_COL, PROJECT_ROOT, TARGET
-from iot_fl.data_utils import load_clients, stratified_split
 
-def build_train_ids(
-    full_dataset_path: Path,
-    seed: int,
-) -> set[int]:
-    full = pd.read_csv(full_dataset_path)
-    train_idx, _, _ = stratified_split(
-        full[TARGET].to_numpy(dtype=int),
-        0.6,
-        0.2,
-        seed,
-    )
-    return set(
-        full.loc[train_idx, ID_COL]
-        .astype(int)
-        .tolist()
-    )
-
-def load_single_client(
-    factory_root: Path,
-    strategy: str,
-    train_ids: set[int],
-    client_id: int,
-):
-    clients = load_clients(
-        factory_root / strategy,
-        train_ids,
-    )
-    if client_id < 0 or client_id >= len(clients):
-        raise IndexError(
-            f"client_id {client_id} is outside the valid range "
-            f"0 to {len(clients) - 1}"
-        )
-    return clients[client_id]
-
-def client_fn(context: Context):
-    client_id = int(context.node_config["partition-id"])
 
 DEFAULT_LEARNING_RATE: Final[float] = 0.05
 DEFAULT_LOCAL_EPOCHS: Final[int] = 5

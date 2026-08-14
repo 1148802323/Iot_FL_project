@@ -3,7 +3,6 @@ from __future__ import annotations
 from collections.abc import Callable
 
 import numpy as np
-from flwr.common import NDArrays, Scalar
 
 from flwr.common import (
     Context,
@@ -13,7 +12,7 @@ from flwr.common import (
     ndarrays_to_parameters,
 )
 from flwr.server import ServerApp, ServerAppComponents, ServerConfig
-from flwr.server.strategy import FedAvg
+
 
 from iot_fl.metrics import classification_metrics
 from iot_fl.model import predict_proba, sample_weights, weighted_log_loss
@@ -168,6 +167,38 @@ def create_server_app(
         threshold=0.5,
     )
     def server_fn(context: Context) -> ServerAppComponents:
+        strategy_kwargs = {}
+
+        strategy_name = config.aggregation.strip().lower()
+
+        if strategy_name == "failure_aware_v1":
+            strategy_kwargs["alpha"] = (
+                config.failure_aware_alpha
+            )
+
+        if strategy_name == "failure_aware_v2":
+            strategy_kwargs["alpha"] = (
+                config.failure_aware_v2_alpha
+            )
+
+        if strategy_name == "failure_aware_v4":
+            strategy_kwargs["schedule"] = (
+                config.failure_aware_v4_schedule
+            )
+            strategy_kwargs["lambda_max"] = (
+                config.failure_aware_v4_lambda_max
+            )
+            strategy_kwargs["total_rounds"] = (
+                config.num_rounds
+            )
+            strategy_kwargs["target_recall"] = (
+                config.failure_aware_v4_target_recall
+            )
+
+            strategy_kwargs["eta"] = (
+                config.failure_aware_v4_eta
+            )
+
         strategy = create_strategy(
             aggregation=config.aggregation,
             fraction_fit=1.0,
@@ -178,6 +209,7 @@ def create_server_app(
             initial_parameters=initial_parameters,
             on_fit_config_fn=fit_config_fn,
             evaluate_fn=evaluate_fn,
+            **strategy_kwargs,
         )
         server_config = ServerConfig(
             num_rounds=config.num_rounds,

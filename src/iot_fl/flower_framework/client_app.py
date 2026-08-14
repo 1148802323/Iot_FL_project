@@ -10,6 +10,10 @@ from flwr.common import Context
 
 from iot_fl.flower_framework.flower_client import AI4IFlowerClient
 
+def create_client_app(
+    clients: Sequence[dict[str, Any]],
+) -> ClientApp:
+    """Create a Flower ClientApp from preloaded client datasets."""
 
 def create_client_app(
     clients: Sequence[dict[str, Any]],

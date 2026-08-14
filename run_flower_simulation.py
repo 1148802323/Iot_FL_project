@@ -77,6 +77,44 @@ def parse_args() -> argparse.Namespace:
     )
 
     parser.add_argument(
+        "--alpha",
+        type=float,
+        default=1.0,
+        help="Failure-aware strength for failure_aware_v1.",
+    )
+
+    parser.add_argument(
+        "--v2-alpha",
+        type=float,
+        default=1.0,
+    )
+
+    parser.add_argument(
+        "--v4-schedule",
+        type=str,
+        choices=("fixed", "linear","recall_adaptive"),
+        default="linear",
+    )
+
+    parser.add_argument(
+        "--v4-lambda-max",
+        type=float,
+        default=2.0,
+    )
+
+    parser.add_argument(
+        "--v4-target-recall",
+        type=float,
+        default=0.85,
+    )
+
+    parser.add_argument(
+        "--v4-eta",
+        type=float,
+        default=0.25,
+    )
+
+    parser.add_argument(
         "--rounds",
         type=int,
         default=50,
@@ -170,6 +208,12 @@ def main() -> None:
         aggregation=args.aggregation,
         num_clients=len(clients),
         num_rounds=args.rounds,
+        failure_aware_alpha=args.alpha,
+        failure_aware_v2_alpha=args.v2_alpha,
+        failure_aware_v4_schedule=args.v4_schedule,
+        failure_aware_v4_lambda_max=args.v4_lambda_max,
+        failure_aware_v4_target_recall=args.v4_target_recall,
+        failure_aware_v4_eta=args.v4_eta,
     )
 
     print(f"[Config] {config}")

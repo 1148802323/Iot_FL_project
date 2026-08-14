@@ -104,3 +104,230 @@ Generated outputs:
 - `figures/failure_aware_fedavg_client_loss.png`: mean client loss by communication round.
 - `figures/failure_aware_fedavg_final_metrics.png`: final V1 metric comparison across IID/Non-IID settings.
 - `figures/failure_aware_vs_fedavg_metrics.png`: standard FedAvg vs failure-aware FedAvg comparison.
+
+## Flower Framework
+
+The original FedAvg workflow has been migrated to a modular Flower-based framework while preserving the numerical behaviour of the existing baseline implementation.
+
+The framework separates client execution, server orchestration, configuration, and aggregation strategy selection. Failure-aware methods are implemented as pluggable strategy classes on top of a shared failure-aware aggregation base, allowing multiple algorithm variants to be integrated without redesigning the core Flower execution workflow.
+
+### Architecture
+
+```text
+run_flower_simulation.py
+        |
+        v
+FrameworkConfig
+        |
+        v
+ServerApp
+        |
+        v
+Strategy Factory
+        |
+        +-- FedAvg
+        |
+        +-- FailureAwareV1Strategy
+        |
+        +-- FailureAwareV4Strategy
+                |
+                +-- fixed
+                +-- linear
+                +-- recall_adaptive
+```
+
+The main Flower framework components are located under:
+
+```text
+src/iot_fl/flower_framework/
+├── flower_client.py
+├── client_app.py
+├── server_app.py
+├── config.py
+└── strategies/
+    ├── __init__.py
+    ├── base_failure_aware.py
+    ├── failure_aware_v1.py
+    ├── failure_aware_v4.py
+    └── strategy_factory.py
+```
+
+`BaseFailureAwareStrategy` contains the shared failure-aware aggregation workflow, including client metadata validation and weighted parameter aggregation. Individual failure-aware variants inherit from this base and implement their own weighting or round-dependent logic.
+
+### Run a Flower Simulation
+
+Activate the Flower virtual environment:
+
+```powershell
+.\.venv_flower\Scripts\Activate.ps1
+```
+
+The simulation entry point adds the project `src` directory to the Python import path. For direct test execution, `PYTHONPATH` can also be set explicitly:
+
+```powershell
+$env:PYTHONPATH="src"
+```
+
+Run the standard FedAvg strategy:
+
+```powershell
+python run_flower_simulation.py --aggregation fedavg
+```
+
+A shorter simulation can be used for development and smoke testing:
+
+```powershell
+python run_flower_simulation.py --aggregation fedavg --rounds 1 --local-epochs 1
+```
+
+Run Failure-Aware V1:
+
+```powershell
+python run_flower_simulation.py --aggregation failure_aware_v1 --alpha 1.0 --rounds 2
+```
+
+Run Failure-Aware V4 with a fixed schedule:
+
+```powershell
+python run_flower_simulation.py --aggregation failure_aware_v4 --v4-schedule fixed --v4-lambda-max 2.0 --rounds 2
+```
+
+Run Failure-Aware V4 with a linear schedule:
+
+```powershell
+python run_flower_simulation.py --aggregation failure_aware_v4 --v4-schedule linear --v4-lambda-max 2.0 --rounds 2
+```
+
+Run Failure-Aware V4 with recall-adaptive scheduling:
+
+```powershell
+python run_flower_simulation.py --aggregation failure_aware_v4 --v4-schedule recall_adaptive --v4-lambda-max 2.0 --v4-target-recall 0.85 --v4-eta 0.25 --rounds 3
+```
+
+### Aggregation Strategies
+
+The framework currently exposes three aggregation strategy options:
+
+- `fedavg`: standard Flower FedAvg aggregation.
+- `failure_aware_v1`: Failure-Aware V1 aggregation.
+- `failure_aware_v4`: Failure-Aware V4 aggregation with configurable lambda scheduling.
+
+#### Failure-Aware V1
+
+V1 uses the aggregation rule:
+
+```text
+aggregation_weight =
+    client_samples
+    * (1 + alpha * client_failure_rate / global_failure_rate)
+```
+
+Setting `alpha = 0` reduces V1 to standard sample-size weighted FedAvg.
+
+#### Failure-Aware V4
+
+V4 uses the aggregation rule:
+
+```text
+aggregation_weight =
+    client_samples
+    * (1 + current_lambda * client_failure_rate)
+```
+
+The current implementation supports three lambda schedules:
+
+- `fixed`: uses `lambda_max` throughout training.
+- `linear`: increases lambda according to the current communication round and total number of rounds.
+- `recall_adaptive`: updates lambda using centralized validation recall, `target_recall`, and `eta`, while constraining lambda to the configured range.
+
+Setting `lambda_max = 0` reduces V4 to standard sample-size weighted FedAvg.
+
+### Failure-Aware Strategy Integration
+
+The failure-aware strategy hierarchy is:
+
+```text
+BaseFailureAwareStrategy
+        |
+        +-- FailureAwareV1Strategy
+        |
+        +-- FailureAwareV4Strategy
+```
+
+The shared base handles the common aggregation workflow. Strategy-specific subclasses provide the algorithm-dependent behaviour through extension hooks such as round preparation and client-weight calculation.
+
+The server selects the requested strategy through `strategy_factory.py`. Strategy-specific parameters are supplied through `FrameworkConfig` and forwarded by `server_app.py`, keeping the core Flower client/server workflow independent from the individual aggregation algorithms.
+
+Additional failure-aware variants can therefore be added as new strategy subclasses without replacing the existing V1 or V4 implementations.
+
+### Framework Tests
+
+Run the complete framework test suite with:
+
+```powershell
+$env:PYTHONPATH="src"
+python -m pytest -v
+```
+
+The current automated tests cover:
+
+- framework configuration validation;
+- aggregation strategy factory behaviour;
+- shared failure-aware metadata validation;
+- Failure-Aware V1 weighting and aggregation behaviour;
+- Failure-Aware V4 fixed and linear scheduling;
+- Failure-Aware V4 recall-adaptive scheduling and lambda bounds;
+- FedAvg fallback behaviour for disabled failure-aware weighting.
+
+The complete test suite passes after the V1 and V4 integrations.
+
+### Baseline and Strategy Consistency Validation
+
+The Flower implementation can be compared against the original FedAvg baseline using:
+
+```powershell
+python validate_baseline_consistency.py --strategy iid
+```
+
+The current regression validation passes all checks:
+
+- single-client training consistency: PASS;
+- FedAvg aggregation consistency: PASS;
+- validation metrics consistency: PASS;
+- Failure-Aware V1 with `alpha = 0` versus FedAvg: PASS;
+- Failure-Aware V4 with `lambda = 0` versus FedAvg: PASS;
+- overall consistency validation: PASS.
+
+The maximum observed global parameter difference in the validated FedAvg-equivalent paths is approximately:
+
+```text
+1.39e-17
+```
+
+Validation metric differences for the original baseline versus the Flower FedAvg implementation are zero for loss, accuracy, precision, recall, and F1.
+
+These results confirm that the Flower migration preserves the numerical behaviour of the original FedAvg baseline within floating-point precision, and that both integrated failure-aware strategies correctly recover standard FedAvg behaviour when their additional weighting is disabled.
+
+### Current Integration Status
+
+```text
+FedAvg
+└── integrated and validated
+
+FailureAwareV1Strategy
+└── integrated, simulated, tested, and consistency-validated
+
+FailureAwareV4Strategy
+├── fixed              integrated and tested
+├── linear             integrated and tested
+└── recall_adaptive    integrated and tested
+
+FailureAwareV2Strategy
+└── pending integration
+
+FailureAwareV3Strategy
+└── pending integration
+```
+
+V1 and V4 are treated as frozen integration paths. Future failure-aware variants should be added through the existing strategy architecture rather than by modifying the completed V1/V4 implementations or redesigning the Flower framework.
+
