@@ -5,40 +5,30 @@ from typing import Any
 from iot_fl.algorithms.base import (
     ExperimentConfig,
     FederatedAlgorithm,
-    normalize_strategy_payload,
-    shared_train_validation_test,
 )
-
-import train_fedavg_baseline as implementation
+from iot_fl.integration.flower_adapter import (
+    run_flower_experiment,
+)
 
 
 class FedAvgAdapter(FederatedAlgorithm):
     name = "fedavg"
     display_name = "FedAvg"
-    implementation_file = "src/train_fedavg_baseline.py"
+    implementation_file = "src/iot_fl/integration/flower_adapter.py"
 
-    def _run(self, distribution: str, config: ExperimentConfig) -> dict[str, Any]:
-        train_ids, x_validation, y_validation, x_test, y_test = shared_train_validation_test(
-            implementation,
-            config,
-        )
-        history, _threshold_table, payload = implementation.fedavg_strategy(
-            strategy=distribution,
-            factory_root=config.factory_root,
-            train_ids=train_ids,
-            x_val=x_validation,
-            y_val=y_validation,
-            x_test=x_test,
-            y_test=y_test,
+    def _run(
+        self,
+        distribution: str,
+        config: ExperimentConfig,
+    ) -> dict[str, Any]:
+        return run_flower_experiment(
+            aggregation="fedavg",
+            distribution=distribution,
             rounds=config.rounds,
             local_epochs=config.local_epochs,
-            lr=config.learning_rate,
+            learning_rate=config.learning_rate,
             l2=config.l2,
+            data_path=config.data_path,
+            factory_root=config.factory_root,
+            seed=config.seed,
         )
-        return normalize_strategy_payload(
-            algorithm=self.name,
-            distribution=distribution,
-            final=payload["final"],
-            history=history,
-        )
-

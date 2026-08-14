@@ -23,6 +23,11 @@ from iot_fl.flower_framework.strategies.strategy_factory import (
 
 from iot_fl.flower_framework.config import FrameworkConfig
 
+ResultCallback = Callable[
+    [int, float, dict[str, Scalar]],
+    None,
+]
+
 def create_fit_config_fn(
     *,
     learning_rate: float,
@@ -52,6 +57,7 @@ def create_evaluate_fn(
     x_val: np.ndarray,
     y_val: np.ndarray,
     threshold: float = 0.5,
+    result_callback: ResultCallback | None = None,
 ) -> Callable[
     [int, NDArrays, dict[str, Scalar]],
     tuple[float, dict[str, Scalar]],
@@ -121,6 +127,14 @@ def create_evaluate_fn(
             "f1": float(validation_metrics["f1"]),
             "threshold": float(validation_metrics["threshold"]),
         }
+
+        if result_callback is not None:
+            result_callback(
+                server_round,
+                float(validation_loss),
+                metrics_for_flower,
+            )
+
         return float(validation_loss), metrics_for_flower
 
     return evaluate
@@ -149,6 +163,7 @@ def create_server_app(
     local_epochs: int,
     l2: float,
     config: FrameworkConfig,
+    result_callback: ResultCallback | None = None,
 
 ) -> ServerApp:
 
@@ -165,6 +180,7 @@ def create_server_app(
         x_val=x_val,
         y_val=y_val,
         threshold=0.5,
+        result_callback=result_callback,
     )
     def server_fn(context: Context) -> ServerAppComponents:
         strategy_kwargs = {}

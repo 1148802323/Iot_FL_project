@@ -47,6 +47,14 @@ def apply_sqlite_compat_migrations() -> None:
         if "dataset_id" not in columns:
             connection.execute(text("ALTER TABLE experiments ADD COLUMN dataset_id INTEGER"))
 
+        if "parameters" not in columns:
+            connection.execute(
+                text(
+                    "ALTER TABLE experiments "
+                    "ADD COLUMN parameters JSON NOT NULL DEFAULT '{}'"
+                )
+            )
+
 
 def get_db() -> Generator[Session, None, None]:
     db = SessionLocal()

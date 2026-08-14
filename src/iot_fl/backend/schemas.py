@@ -112,7 +112,8 @@ class ClientExperimentRead(BaseModel):
 class AlgorithmRead(BaseModel):
     name: str
     display_name: str
-    implementation_file: str
+    implementation_file: str | None = None
+    available: bool = True
 
 
 class ExperimentCreate(BaseModel):
@@ -122,7 +123,9 @@ class ExperimentCreate(BaseModel):
     local_epochs: int = Field(gt=0)
     learning_rate: float = Field(gt=0)
     dataset_id: int | None = Field(default=None, gt=0)
-
+    parameters: dict[str, object] = Field(
+        default_factory=dict
+    )
     @field_validator("algorithm")
     @classmethod
     def validate_algorithm(cls, value: str) -> str:

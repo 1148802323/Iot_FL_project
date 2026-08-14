@@ -301,6 +301,11 @@ function bindAuthControls() {
       clearSession();
       showAuthMessage(error.message, "error");
     }
+
+
+
+
+
   });
 
   if (accessToken) {
@@ -631,6 +636,7 @@ function populateAlgorithmSelect() {
     <option value="${algorithm.name}">${algorithm.display_name}</option>
   `).join("");
   select.disabled = false;
+  updateAlgorithmParameters();
 }
 
 function populateDatasetSelect() {
@@ -1207,16 +1213,46 @@ async function selectExperiment(experimentId) {
 
 function readExperimentPayload() {
   const datasetValue = document.querySelector("#experiment-dataset").value;
+
   const payload = {
     algorithm: document.querySelector("#experiment-algorithm").value,
     distribution: document.querySelector("#experiment-distribution").value,
     rounds: Number(document.querySelector("#experiment-rounds").value),
     local_epochs: Number(document.querySelector("#experiment-local-epochs").value),
-    learning_rate: Number(document.querySelector("#experiment-learning-rate").value)
+    learning_rate: Number(document.querySelector("#experiment-learning-rate").value),
+    parameters: {}
   };
+
+  if (
+    payload.algorithm === "failure_aware_v1" ||
+    payload.algorithm === "failure_aware_v2"
+  ) {
+    payload.parameters.alpha = Number(
+      document.querySelector("#experiment-alpha").value
+    );
+  }
+
+  if (payload.algorithm === "dynamic_failure_aware") {
+    payload.parameters.schedule =
+      document.querySelector("#experiment-schedule").value;
+
+    payload.parameters.lambda_max = Number(
+      document.querySelector("#experiment-lambda-max").value
+    );
+
+    payload.parameters.target_recall = Number(
+      document.querySelector("#experiment-target-recall").value
+    );
+
+    payload.parameters.eta = Number(
+      document.querySelector("#experiment-eta").value
+    );
+  }
+
   if (datasetValue) {
     payload.dataset_id = Number(datasetValue);
   }
+
   return payload;
 }
 
@@ -1336,21 +1372,32 @@ function bindExperimentControls() {
   const form = document.querySelector("#experiment-form");
   const refreshButton = document.querySelector("#refresh-experiments-button");
   const uploadForm = document.querySelector("#dataset-upload-form");
-  if (!form || !refreshButton || !uploadForm) {
+  const algorithmSelect = document.querySelector("#experiment-algorithm");
+
+  if (!form || !refreshButton || !uploadForm || !algorithmSelect) {
     return;
   }
+
+  algorithmSelect.addEventListener("change", updateAlgorithmParameters);
+
   form.addEventListener("submit", (event) => {
     event.preventDefault();
     startExperiment();
   });
+
   refreshButton.addEventListener("click", () => {
     if (!accessToken) {
       setExperimentMessage("Please login to refresh experiments.", "error");
       return;
     }
-    setExperimentMessage("Refreshing experiment history...", "loading");
+
+    setExperimentMessage(
+      "Refreshing experiment history...",
+      "loading"
+    );
     loadExperimentWorkspace();
   });
+
   uploadForm.addEventListener("submit", (event) => {
     event.preventDefault();
     uploadDataset();
@@ -1807,6 +1854,40 @@ async function init() {
     bindPredictionControls();
   } catch (error) {
     showError(`Unable to read local report files: ${error.message}. Please access the page through the local HTTP server instead of opening the HTML file directly.`);
+  }
+}
+
+function updateAlgorithmParameters() {
+  const algorithm = document.querySelector("#experiment-algorithm").value;
+
+  const container = document.querySelector("#algorithm-parameters");
+  const alphaParameter = document.querySelector("#alpha-parameter");
+  const scheduleParameter = document.querySelector("#schedule-parameter");
+  const lambdaMaxParameter = document.querySelector("#lambda-max-parameter");
+  const targetRecallParameter = document.querySelector("#target-recall-parameter");
+  const etaParameter = document.querySelector("#eta-parameter");
+
+  container.hidden = true;
+  alphaParameter.hidden = true;
+  scheduleParameter.hidden = true;
+  lambdaMaxParameter.hidden = true;
+  targetRecallParameter.hidden = true;
+  etaParameter.hidden = true;
+
+  if (
+    algorithm === "failure_aware_v1" ||
+    algorithm === "failure_aware_v2"
+  ) {
+    container.hidden = false;
+    alphaParameter.hidden = false;
+  }
+
+  if (algorithm === "dynamic_failure_aware") {
+    container.hidden = false;
+    scheduleParameter.hidden = false;
+    lambdaMaxParameter.hidden = false;
+    targetRecallParameter.hidden = false;
+    etaParameter.hidden = false;
   }
 }
 

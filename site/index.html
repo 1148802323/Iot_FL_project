@@ -411,6 +411,34 @@
                 </select>
               </label>
             </div>
+              <div id="algorithm-parameters" class="algorithm-parameters" hidden>
+                <label id="alpha-parameter" hidden>
+                    <span>Alpha</span>
+                        <input id="experiment-alpha" type="number" step="0.1" value="1.0">
+                </label>
+
+                <label id="schedule-parameter" hidden>
+                    <span>Schedule</span>
+                        <select id="experiment-schedule">
+                            <option value="linear" selected>Linear</option>
+                        </select>
+                </label>
+
+                <label id="lambda-max-parameter" hidden>
+                    <span>Lambda Max</span>
+                        <input id="experiment-lambda-max" type="number" step="0.1" value="2.0">
+                </label>
+
+                <label id="target-recall-parameter" hidden>
+                    <span>Target Recall</span>
+                        <input id="experiment-target-recall" type="number" step="0.01" min="0" max="1" value="0.85">
+                </label>
+
+                <label id="eta-parameter" hidden>
+                    <span>Eta</span>
+                        <input id="experiment-eta" type="number" step="0.01" value="0.25">
+                </label>
+            </div>
 
             <div class="form-actions">
               <button class="button primary form-button" id="start-experiment-button" type="submit">

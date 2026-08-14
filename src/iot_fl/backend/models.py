@@ -140,6 +140,11 @@ class Experiment(Base):
     rounds: Mapped[int] = mapped_column(Integer, nullable=False)
     local_epochs: Mapped[int] = mapped_column(Integer, nullable=False)
     learning_rate: Mapped[float] = mapped_column(Float, nullable=False)
+    parameters: Mapped[dict[str, object]] = mapped_column(
+        JSON,
+        default=dict,
+        nullable=False,
+    )
     status: Mapped[str] = mapped_column(String(20), default="PENDING", index=True, nullable=False)
     accuracy: Mapped[float | None] = mapped_column(Float, nullable=True)
     precision: Mapped[float | None] = mapped_column(Float, nullable=True)

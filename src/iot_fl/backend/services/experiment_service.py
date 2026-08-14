@@ -42,6 +42,7 @@ def create_experiment(
         rounds=payload.rounds,
         local_epochs=payload.local_epochs,
         learning_rate=payload.learning_rate,
+        parameters=payload.parameters,
         status=PENDING,
         convergence_history=[],
     )
@@ -88,7 +89,11 @@ def run_managed_experiment(db: Session, experiment: Experiment) -> Experiment:
             "rounds": experiment.rounds,
             "local_epochs": experiment.local_epochs,
             "learning_rate": experiment.learning_rate,
+
         }
+
+        config.update(experiment.parameters or {})
+
         if experiment.dataset is not None:
             config["data_path"] = experiment.dataset.processed_path
             config["factory_root"] = experiment.dataset.factory_root
