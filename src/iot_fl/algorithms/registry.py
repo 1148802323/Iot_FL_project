@@ -6,6 +6,7 @@ from iot_fl.algorithms.adapters import (
     DynamicFailureAwareAdapter,
     FailureAwareV1Adapter,
     FailureAwareV2Adapter,
+    FailureAwareV3Adapter,
     FedAvgAdapter,
 )
 from iot_fl.algorithms.base import FederatedAlgorithm, SUPPORTED_DISTRIBUTIONS
@@ -15,6 +16,7 @@ ALGORITHM_REGISTRY: dict[str, FederatedAlgorithm] = {
     "fedavg": FedAvgAdapter(),
     "failure_aware_v1": FailureAwareV1Adapter(),
     "failure_aware_v2": FailureAwareV2Adapter(),
+    "failure_aware_v3": FailureAwareV3Adapter(),
     "dynamic_failure_aware": DynamicFailureAwareAdapter(),
 }
 

@@ -8,6 +8,8 @@ class FrameworkConfig:
     num_rounds: int
     failure_aware_alpha: float = 1.0
     failure_aware_v2_alpha: float = 1.0
+    failure_aware_v3_lambda: float = 1.0
+    failure_aware_v3_beta: float = 1.0
     failure_aware_v4_schedule: str = "linear"
     failure_aware_v4_lambda_max: float = 2.0
     failure_aware_v4_target_recall: float = 0.85
@@ -28,6 +30,16 @@ class FrameworkConfig:
         if self.failure_aware_v2_alpha < 0.0:
             raise ValueError(
                 "failure_aware_v2_alpha must be greater than or equal to zero"
+            )
+
+        if self.failure_aware_v3_lambda < 0.0:
+            raise ValueError(
+                "failure_aware_v3_lambda must be greater than or equal to zero"
+            )
+
+        if self.failure_aware_v3_beta < 0.0:
+            raise ValueError(
+                "failure_aware_v3_beta must be greater than or equal to zero"
             )
 
         normalized_schedule = (

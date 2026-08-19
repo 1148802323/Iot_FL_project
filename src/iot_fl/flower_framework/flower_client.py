@@ -130,6 +130,13 @@ class AI4IFlowerClient(NumPyClient):
         )
         self.parameters = updated_parameters.copy()
 
+        local_probabilities = predict_proba(self.x_train, self.parameters)
+        local_metrics = classification_metrics(
+            self.y_train,
+            local_probabilities,
+            DEFAULT_THRESHOLD,
+        )
+
         return (
             [self.parameters.copy()],
             len(self.y_train),
@@ -137,6 +144,7 @@ class AI4IFlowerClient(NumPyClient):
                 "client_name": self.client_name,
                 "local_loss": float(local_loss),
                 "failure_rate": float(np.mean(self.y_train)),
+                "local_recall": float(local_metrics["recall"]),
             },
         )
 

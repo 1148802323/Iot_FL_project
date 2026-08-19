@@ -12,6 +12,10 @@ from iot_fl.flower_framework.strategies.failure_aware_v2 import (
     FailureAwareV2Strategy,
 )
 
+from iot_fl.flower_framework.strategies.failure_aware_v3 import (
+    FailureAwareV3Strategy,
+)
+
 from iot_fl.flower_framework.strategies.failure_aware_v4 import (
     FailureAwareV4Strategy,
 )
@@ -33,6 +37,9 @@ def create_strategy(
 
     if normalized_name == "failure_aware_v2":
         return FailureAwareV2Strategy(**strategy_kwargs)
+
+    if normalized_name == "failure_aware_v3":
+        return FailureAwareV3Strategy(**strategy_kwargs)
 
     raise ValueError(
         f"Unsupported aggregation strategy: {aggregation}"

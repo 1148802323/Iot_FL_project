@@ -16,6 +16,7 @@ SUPPORTED_AGGREGATIONS = {
     "fedavg",
     "failure_aware_v1",
     "failure_aware_v2",
+    "failure_aware_v3",
     "failure_aware_v4",
 }
 
@@ -33,6 +34,8 @@ def run_flower_experiment(
     seed: int = 42,
     alpha: float | None = None,
     v2_alpha: float | None = None,
+    v3_lambda: float = 1.0,
+    v3_beta: float = 1.0,
     v4_schedule: str | None = None,
     v4_lambda_max: float | None = None,
     v4_target_recall: float | None = None,
@@ -125,6 +128,15 @@ def run_flower_experiment(
             )
 
         framework_config_kwargs["failure_aware_v2_alpha"] = v2_alpha
+
+    if normalized_aggregation == "failure_aware_v3":
+        framework_config_kwargs[
+            "failure_aware_v3_lambda"
+        ] = float(v3_lambda)
+
+        framework_config_kwargs[
+            "failure_aware_v3_beta"
+        ] = float(v3_beta)
 
     if normalized_aggregation == "failure_aware_v4":
         missing_parameters = [

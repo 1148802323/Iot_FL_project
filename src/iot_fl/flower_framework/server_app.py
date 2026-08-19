@@ -197,6 +197,14 @@ def create_server_app(
                 config.failure_aware_v2_alpha
             )
 
+        if strategy_name == "failure_aware_v3":
+            strategy_kwargs["failure_lambda"] = (
+                config.failure_aware_v3_lambda
+            )
+            strategy_kwargs["beta"] = (
+                config.failure_aware_v3_beta
+            )
+
         if strategy_name == "failure_aware_v4":
             strategy_kwargs["schedule"] = (
                 config.failure_aware_v4_schedule

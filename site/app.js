@@ -1232,6 +1232,16 @@ function readExperimentPayload() {
     );
   }
 
+  if (payload.algorithm === "failure_aware_v3") {
+  payload.parameters.lambda = Number(
+    document.querySelector("#experiment-lambda").value
+  );
+
+  payload.parameters.beta = Number(
+    document.querySelector("#experiment-beta").value
+  );
+}
+
   if (payload.algorithm === "dynamic_failure_aware") {
     payload.parameters.schedule =
       document.querySelector("#experiment-schedule").value;
@@ -1866,9 +1876,13 @@ function updateAlgorithmParameters() {
   const lambdaMaxParameter = document.querySelector("#lambda-max-parameter");
   const targetRecallParameter = document.querySelector("#target-recall-parameter");
   const etaParameter = document.querySelector("#eta-parameter");
+  const lambdaParameter = document.querySelector("#lambda-parameter");
+  const betaParameter = document.querySelector("#beta-parameter");
 
   container.hidden = true;
   alphaParameter.hidden = true;
+  lambdaParameter.hidden = true;
+  betaParameter.hidden = true;
   scheduleParameter.hidden = true;
   lambdaMaxParameter.hidden = true;
   targetRecallParameter.hidden = true;
@@ -1881,6 +1895,12 @@ function updateAlgorithmParameters() {
     container.hidden = false;
     alphaParameter.hidden = false;
   }
+
+  if (algorithm === "failure_aware_v3") {
+  container.hidden = false;
+  lambdaParameter.hidden = false;
+  betaParameter.hidden = false;
+}
 
   if (algorithm === "dynamic_failure_aware") {
     container.hidden = false;

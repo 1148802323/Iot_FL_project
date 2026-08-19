@@ -90,6 +90,20 @@ def parse_args() -> argparse.Namespace:
     )
 
     parser.add_argument(
+        "--v3-lambda",
+        type=float,
+        default=1.0,
+        help="Failure-rate weight for failure_aware_v3.",
+    )
+
+    parser.add_argument(
+        "--v3-beta",
+        type=float,
+        default=1.0,
+        help="Local-recall weight for failure_aware_v3.",
+    )
+
+    parser.add_argument(
         "--v4-schedule",
         type=str,
         choices=("fixed", "linear","recall_adaptive"),
@@ -210,6 +224,8 @@ def main() -> None:
         num_rounds=args.rounds,
         failure_aware_alpha=args.alpha,
         failure_aware_v2_alpha=args.v2_alpha,
+        failure_aware_v3_lambda=args.v3_lambda,
+        failure_aware_v3_beta=args.v3_beta,
         failure_aware_v4_schedule=args.v4_schedule,
         failure_aware_v4_lambda_max=args.v4_lambda_max,
         failure_aware_v4_target_recall=args.v4_target_recall,
