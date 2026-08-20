@@ -149,6 +149,8 @@ def create_server_app(
     l2: float,
     num_clients: int,
     aggregation: str,
+    failure_lambda: float = 1.0,
+    beta: float = 1.0,
 ) -> ServerApp:
     if rounds <= 0:
         raise ValueError("rounds must be greater than zero")
@@ -170,7 +172,7 @@ def create_server_app(
         threshold=0.5,
     )
     def server_fn(context: Context) -> ServerAppComponents:
-        strategy = create_strategy(
+        strategy_kwargs = dict(
             aggregation=aggregation,
             fraction_fit=1.0,
             fraction_evaluate=0.0,
@@ -181,6 +183,10 @@ def create_server_app(
             on_fit_config_fn=fit_config_fn,
             evaluate_fn=evaluate_fn,
         )
+        if aggregation.strip().lower() in {"performance_aware", "performance_aware_v3"}:
+            strategy_kwargs["failure_lambda"] = failure_lambda
+            strategy_kwargs["beta"] = beta
+        strategy = create_strategy(**strategy_kwargs)
         server_config = ServerConfig(
             num_rounds=rounds,
         )

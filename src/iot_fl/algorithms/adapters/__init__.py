@@ -4,11 +4,12 @@ from iot_fl.algorithms.adapters.dynamic_failure_aware import DynamicFailureAware
 from iot_fl.algorithms.adapters.failure_aware_v1 import FailureAwareV1Adapter
 from iot_fl.algorithms.adapters.failure_aware_v2 import FailureAwareV2Adapter
 from iot_fl.algorithms.adapters.fedavg import FedAvgAdapter
+from iot_fl.algorithms.adapters.performance_aware_v3 import PerformanceAwareV3Adapter
 
 __all__ = [
     "DynamicFailureAwareAdapter",
     "FailureAwareV1Adapter",
     "FailureAwareV2Adapter",
     "FedAvgAdapter",
+    "PerformanceAwareV3Adapter",
 ]
-

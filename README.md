@@ -105,6 +105,36 @@ Generated outputs:
 - `figures/failure_aware_fedavg_final_metrics.png`: final V1 metric comparison across IID/Non-IID settings.
 - `figures/failure_aware_vs_fedavg_metrics.png`: standard FedAvg vs failure-aware FedAvg comparison.
 
+## Proposed Method V3: Performance-Aware FedAvg
+
+V3 combines client data volume, local failure prevalence, and the recall of the
+newly trained local model:
+
+```text
+score_i = n_i * (1 + failure_lambda * r_i + beta * local_recall_i)
+```
+
+`local_recall_i` is calculated at threshold `0.5` on client `i`'s local training
+partition after each local update. Only this scalar metric and the model update
+are used by the server; global validation and test labels do not influence the
+aggregation score. Run all three data distributions with:
+
+```powershell
+python src/train_performance_aware_fedavg.py --failure-lambda 1.0 --beta 1.0
+```
+
+The same method is registered as `performance_aware_v3` in the unified backend
+algorithm interface. It is therefore returned by `GET /api/algorithms` and
+appears automatically in the website experiment selector. The Flower simulation
+entry point also accepts:
+
+```powershell
+python run_flower_simulation.py --aggregation performance_aware_v3 --failure-lambda 1.0 --beta 1.0
+```
+
+Generated research outputs use the `performance_aware_fedavg_*` prefix in
+`reports/`, `figures/`, and `data/processed/`.
+
 ## Proposed Method V4: Dynamic Failure-Aware FedAvg
 
 This contribution adds a standalone fourth aggregation method without modifying

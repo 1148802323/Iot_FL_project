@@ -273,11 +273,15 @@ def failure_aware_strategy(
     return pd.DataFrame(history_rows), threshold_table, {"final": final, "model": model_payload}
 
 
-def draw_convergence(history: pd.DataFrame, out_path: Path) -> None:
+def draw_convergence(
+    history: pd.DataFrame,
+    out_path: Path,
+    title: str = "Failure-Aware FedAvg Convergence",
+) -> None:
     width, height = 1250, 760
     img = Image.new("RGB", (width, height), "white")
     draw = ImageDraw.Draw(img)
-    draw.text((75, 35), "Failure-Aware FedAvg Convergence", fill=COLORS["ink"], font=font(34, True))
+    draw.text((75, 35), title, fill=COLORS["ink"], font=font(34, True))
     left, right, top, bottom = 115, 1140, 130, 610
     draw.line((left, top, left, bottom, right, bottom), fill=COLORS["muted"], width=2)
     draw.text((25, top + 25), "Val F1", fill=COLORS["ink"], font=font(18))
@@ -316,12 +320,16 @@ def draw_convergence(history: pd.DataFrame, out_path: Path) -> None:
     img.save(out_path)
 
 
-def draw_final_metrics(results: pd.DataFrame, out_path: Path) -> None:
+def draw_final_metrics(
+    results: pd.DataFrame,
+    out_path: Path,
+    title: str = "Failure-Aware FedAvg Final Test Metrics",
+) -> None:
     metric_cols = ["accuracy", "precision", "recall", "f1"]
     width, height = 1300, 820
     img = Image.new("RGB", (width, height), "white")
     draw = ImageDraw.Draw(img)
-    draw.text((75, 35), "Failure-Aware FedAvg Final Test Metrics", fill=COLORS["ink"], font=font(34, True))
+    draw.text((75, 35), title, fill=COLORS["ink"], font=font(34, True))
     left, right, top, bottom = 130, 1210, 145, 640
     draw.line((left, top, left, bottom, right, bottom), fill=COLORS["muted"], width=2)
     bar_w, item_gap, group_gap = 58, 12, 76
@@ -342,11 +350,15 @@ def draw_final_metrics(results: pd.DataFrame, out_path: Path) -> None:
     img.save(out_path)
 
 
-def draw_loss_curve(history: pd.DataFrame, out_path: Path) -> None:
+def draw_loss_curve(
+    history: pd.DataFrame,
+    out_path: Path,
+    title: str = "Failure-Aware FedAvg Mean Client Loss",
+) -> None:
     width, height = 1250, 760
     img = Image.new("RGB", (width, height), "white")
     draw = ImageDraw.Draw(img)
-    draw.text((75, 35), "Failure-Aware FedAvg Mean Client Loss", fill=COLORS["ink"], font=font(34, True))
+    draw.text((75, 35), title, fill=COLORS["ink"], font=font(34, True))
     left, right, top, bottom = 115, 1140, 130, 610
     draw.line((left, top, left, bottom, right, bottom), fill=COLORS["muted"], width=2)
     y_min = float(history["mean_client_loss"].min())

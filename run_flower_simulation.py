@@ -70,6 +70,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--aggregation",
         type=str,
+        choices=("fedavg", "performance_aware_v3"),
         default="fedavg",
 
     )
@@ -103,6 +104,9 @@ def parse_args() -> argparse.Namespace:
         type=int,
         default=42,
     )
+
+    parser.add_argument("--failure-lambda", type=float, default=1.0)
+    parser.add_argument("--beta", type=float, default=1.0)
 
     return parser.parse_args()
 
@@ -178,6 +182,8 @@ def main() -> None:
         l2=args.l2,
         num_clients=len(clients),
         aggregation=args.aggregation,
+        failure_lambda=args.failure_lambda,
+        beta=args.beta,
     )
 
 

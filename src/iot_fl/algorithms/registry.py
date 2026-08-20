@@ -7,6 +7,7 @@ from iot_fl.algorithms.adapters import (
     FailureAwareV1Adapter,
     FailureAwareV2Adapter,
     FedAvgAdapter,
+    PerformanceAwareV3Adapter,
 )
 from iot_fl.algorithms.base import FederatedAlgorithm, SUPPORTED_DISTRIBUTIONS
 
@@ -15,6 +16,7 @@ ALGORITHM_REGISTRY: dict[str, FederatedAlgorithm] = {
     "fedavg": FedAvgAdapter(),
     "failure_aware_v1": FailureAwareV1Adapter(),
     "failure_aware_v2": FailureAwareV2Adapter(),
+    "performance_aware_v3": PerformanceAwareV3Adapter(),
     "dynamic_failure_aware": DynamicFailureAwareAdapter(),
 }
 
@@ -41,4 +43,3 @@ def run_experiment(
     config: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     return get_algorithm(algorithm).run(distribution=distribution, config=config)
-
